@@ -6,7 +6,7 @@ import { APP_CONFIG, type AppConfig } from '../config.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { parseBody } from '../http/schemas.js';
 import { IdentityService, publicUser } from './identity.service.js';
-import { SESSION_COOKIE, SessionService } from './session.service.js';
+import { SESSION_COOKIE, SessionService, clearSessionCookie } from './session.service.js';
 
 const email = z.string().trim().email().max(254).transform(value => value.toLowerCase());
 const credentials = z.strictObject({ email, password: z.string().min(1) });
@@ -48,7 +48,7 @@ export class IdentityController {
       const user = await this.db.user.findUnique({ where: { id: actor.id } });
       return { user: user ? publicUser(user) : null };
     } catch (error) {
-      if (error instanceof UnauthorizedException) return { user: null };
+      if (error instanceof UnauthorizedException) { clearSessionCookie(response, this.config); return { user: null }; }
       throw error;
     }
   }
@@ -58,8 +58,7 @@ export class IdentityController {
   async logout(@Req() request: Request, @Res({ passthrough: true }) response: Response): Promise<void> {
     const raw = parseCookie(request.header('cookie') ?? '')[SESSION_COOKIE];
     if (raw) await this.sessions.revoke(raw);
-    response.append('Set-Cookie', stringifySetCookie({ name: SESSION_COOKIE, value: '', path: '/', httpOnly: true,
-      sameSite: 'lax', secure: this.config.mode === 'production', maxAge: 0 }));
+    clearSessionCookie(response, this.config);
     response.setHeader('Cache-Control', 'no-store');
   }
 }

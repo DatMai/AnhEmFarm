@@ -24,8 +24,8 @@ export function parseAdminArgs(argv: string[]): Options {
   }
   const email = values.get('--email');
   if (!email) throw new Error('Email is required.');
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
-    (values.get('--actor-email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(values.get('--actor-email')!))) throw new Error('Valid email addresses are required.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail(email)) ||
+    (values.get('--actor-email') && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail(values.get('--actor-email')!)))) throw new Error('Valid email addresses are required.');
   if (command === 'create' && (!values.get('--name') || values.has('--actor-email'))) throw new Error('Create requires a name and no actor email.');
   if (command === 'grant' && (!values.get('--actor-email') || values.has('--password-file') || values.has('--name'))) throw new Error('Grant requires an actor email.');
   return { command, email: normalizedEmail(email), name: values.get('--name'), actorEmail: values.get('--actor-email'), passwordFile: values.get('--password-file') };
@@ -53,7 +53,7 @@ export async function executeAdmin(db: PrismaClient, options: Options, password?
     const passwordHash = await hash(password, { type: argon2id, memoryCost: 65536, timeCost: 3, parallelism: 1 });
     await db.$transaction(async tx => {
       // Bootstrap is allowed exactly once. Subsequent elevation uses audited grant.
-      await tx.$queryRaw`SELECT pg_advisory_xact_lock(417, 1)`;
+      await tx.$queryRaw`SELECT pg_advisory_xact_lock(417, 1)::text AS locked`;
       const admins = await tx.user.count({ where: { role: 'ADMIN' } });
       if (admins !== 0) throw new Error('An administrator already exists; use grant.');
       const user = await tx.user.create({ data: { email: options.email, name: options.name!, passwordHash, role: 'ADMIN', verifiedAt: new Date() } });

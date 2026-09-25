@@ -20,7 +20,7 @@ function equal(a: string, b: string): boolean {
 export interface SessionCsrfRequest extends Request { sessionCsrfSecret?: string }
 
 /** Task 4 supplies this before the global CSRF check; it resolves and validates aef_session. */
-export type SessionCsrfResolver = (request: SessionCsrfRequest) => Promise<void>;
+export type SessionCsrfResolver = (request: SessionCsrfRequest, response: Response) => Promise<void>;
 
 @Injectable()
 export class CsrfGuard {

@@ -18,7 +18,7 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
   return async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
       if (resolveSessionCsrf && request.path === '/api/v1/auth/csrf') {
-        try { await resolveSessionCsrf(request as SessionCsrfRequest); }
+        try { await resolveSessionCsrf(request as SessionCsrfRequest, response); }
         catch (error) { next(error); return; }
       }
       next(); return;
@@ -27,7 +27,7 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
       response.status(403).json({ code: 'ORIGIN_REJECTED' }); return;
     }
     if (resolveSessionCsrf) {
-      try { await resolveSessionCsrf(request as SessionCsrfRequest); }
+      try { await resolveSessionCsrf(request as SessionCsrfRequest, response); }
       catch (error) { next(error); return; }
     }
     if (!csrf.valid(request as SessionCsrfRequest)) {

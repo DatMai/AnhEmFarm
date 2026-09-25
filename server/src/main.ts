@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { RequestMethod } from '@nestjs/common';
+import { RequestMethod, UnauthorizedException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
@@ -15,7 +15,7 @@ import { SafeExceptionFilter } from './http/error.filter.js';
 import { securityMiddleware } from './http/security.middleware.js';
 import { CsrfGuard } from './identity/csrf.guard.js';
 import { RateLimitService } from './identity/rate-limit.service.js';
-import { SESSION_COOKIE, SessionService } from './identity/session.service.js';
+import { SESSION_COOKIE, SessionService, clearSessionCookie } from './identity/session.service.js';
 
 export async function createApp(config: AppConfig): Promise<INestApplication> {
   validateConfig(config);
@@ -42,11 +42,15 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
     next();
   });
   const sessions = app.get(SessionService);
-  app.use(securityMiddleware(config, app.get(CsrfGuard), app.get(RateLimitService), async request => {
+  app.use(securityMiddleware(config, app.get(CsrfGuard), app.get(RateLimitService), async (request, response) => {
     const raw = parseCookie(request.header('cookie') ?? '')[SESSION_COOKIE];
     if (!raw) return;
     try { request.sessionCsrfSecret = (await sessions.findValid(raw)).csrfSecret; }
-    catch { /* Cookie remains present, so CSRF validation fails closed. */ }
+    catch (error) {
+      if (!(error instanceof UnauthorizedException)) throw error;
+      // The current request still carries the stale cookie and cannot use anonymous CSRF.
+      clearSessionCookie(response, config);
+    }
   }));
   app.useGlobalFilters(new SafeExceptionFilter());
   await app.init();

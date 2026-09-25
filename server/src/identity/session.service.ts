@@ -1,10 +1,17 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { stringifySetCookie } from 'cookie';
+import type { Response } from 'express';
+import type { AppConfig } from '../config.js';
 import { PrismaService } from '../db/prisma.service.js';
 
 export interface Actor { id: string; role: 'CUSTOMER' | 'ADMIN'; authVersion: number }
 export const SESSION_COOKIE = 'aef_session';
 export const sha256 = (value: string): string => createHash('sha256').update(value).digest('hex');
+export function clearSessionCookie(response: Response, config: AppConfig): void {
+  response.append('Set-Cookie', stringifySetCookie({ name: SESSION_COOKIE, value: '', path: '/', httpOnly: true,
+    sameSite: 'lax', secure: config.mode === 'production', maxAge: 0 }));
+}
 
 @Injectable()
 export class SessionService {

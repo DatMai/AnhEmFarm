@@ -55,7 +55,11 @@ export async function startHarness(): Promise<Harness> {
           if (index < 0) continue;
           const name = pair.slice(0, index);
           const value = pair.slice(index + 1);
-          if (value) cookies.set(name, value); else cookies.delete(name);
+          if (value) cookies.set(name, value);
+          else {
+            cookies.delete(name);
+            if (name === 'aef_session') csrfToken = '';
+          }
         }
       };
       const cookieHeader = () => [...cookies].map(([name, value]) => `${name}=${value}`).join('; ');
@@ -71,6 +75,7 @@ export async function startHarness(): Promise<Harness> {
           ...(unsafe ? { Origin: config.origin, 'X-CSRF-Token': csrfToken } : {}), ...headers };
         const result = await harness.request(method, path, body, finalHeaders);
         capture(result.headers);
+        if (method.toUpperCase() === 'GET' && path === '/api/v1/auth/csrf') csrfToken = result.status === 200 ? result.body.token : '';
         if (unsafe && ['/api/v1/auth/login', '/api/v1/auth/logout'].includes(path) && result.status < 300) {
           csrfToken = '';
           await refreshCsrf();
