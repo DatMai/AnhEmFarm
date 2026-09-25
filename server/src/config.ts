@@ -1,6 +1,7 @@
 import { resolve } from 'node:path';
 import { config as loadDotEnv } from 'dotenv';
 import { z } from 'zod';
+import type { RatePolicies } from './http/security.middleware.js';
 
 export const APP_CONFIG = 'APP_CONFIG';
 
@@ -16,6 +17,12 @@ const environment = z.object({
   STORAGE_ENDPOINT: z.string().default(''),
   SALES_ENABLED: z.enum(['true', 'false']).default('false'),
   DEMO_ENABLED: z.enum(['true', 'false']).default('false'),
+  TRUSTED_PROXY_ADDRESS: z.string().default(''),
+  RATE_LOGIN_PAIR: z.coerce.number().int().positive().default(10),
+  RATE_LOGIN_IP: z.coerce.number().int().positive().default(60),
+  RATE_REGISTRATION_IP: z.coerce.number().int().positive().default(10),
+  RATE_EMAIL_ACCOUNT: z.coerce.number().int().positive().default(3),
+  RATE_EMAIL_IP: z.coerce.number().int().positive().default(20),
 });
 
 export interface AppConfig {
@@ -28,6 +35,8 @@ export interface AppConfig {
   storage: { bucket: string; endpoint: string };
   salesEnabled: boolean;
   demoEnabled: boolean;
+  trustedProxyAddress?: string;
+  ratePolicies?: Partial<RatePolicies>;
 }
 
 const applicationConfig = z.object({
@@ -40,6 +49,8 @@ const applicationConfig = z.object({
   storage: z.object({ bucket: z.string(), endpoint: z.string() }),
   salesEnabled: z.boolean(),
   demoEnabled: z.boolean(),
+  trustedProxyAddress: z.string().optional(),
+  ratePolicies: z.record(z.string(), z.object({ limit: z.number().int().positive(), windowMs: z.number().int().min(1000) })).optional(),
 });
 
 export function validateConfig(config: AppConfig): AppConfig {
@@ -68,5 +79,13 @@ export function readConfig(): AppConfig {
     storage: { bucket: env.STORAGE_BUCKET, endpoint: env.STORAGE_ENDPOINT },
     salesEnabled: env.SALES_ENABLED === 'true',
     demoEnabled: env.DEMO_ENABLED === 'true',
+    trustedProxyAddress: env.TRUSTED_PROXY_ADDRESS || undefined,
+    ratePolicies: {
+      loginPair: { limit: env.RATE_LOGIN_PAIR, windowMs: 15 * 60_000 },
+      loginIp: { limit: env.RATE_LOGIN_IP, windowMs: 15 * 60_000 },
+      registrationIp: { limit: env.RATE_REGISTRATION_IP, windowMs: 60 * 60_000 },
+      emailAccount: { limit: env.RATE_EMAIL_ACCOUNT, windowMs: 60 * 60_000 },
+      emailIp: { limit: env.RATE_EMAIL_IP, windowMs: 60 * 60_000 },
+    },
   });
 }

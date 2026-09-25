@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { ArgumentsHost, Catch, ExceptionFilter, HttpException, HttpStatus, RequestMethod } from '@nestjs/common';
+import { RequestMethod } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
@@ -10,15 +10,10 @@ import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import { AppModule } from './app.module.js';
 import { readConfig, validateConfig, type AppConfig } from './config.js';
-
-@Catch()
-class SafeExceptionFilter implements ExceptionFilter {
-  catch(error: unknown, host: ArgumentsHost): void {
-    const response = host.switchToHttp().getResponse<Response>();
-    const status = error instanceof HttpException ? error.getStatus() : HttpStatus.INTERNAL_SERVER_ERROR;
-    response.status(status).json({ status: status === 503 ? 'unavailable' : 'error' });
-  }
-}
+import { SafeExceptionFilter } from './http/error.filter.js';
+import { securityMiddleware } from './http/security.middleware.js';
+import { CsrfGuard } from './identity/csrf.guard.js';
+import { RateLimitService } from './identity/rate-limit.service.js';
 
 export async function createApp(config: AppConfig): Promise<INestApplication> {
   validateConfig(config);
@@ -44,6 +39,7 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
     });
     next();
   });
+  app.use(securityMiddleware(config, app.get(CsrfGuard), app.get(RateLimitService)));
   app.useGlobalFilters(new SafeExceptionFilter());
   await app.init();
   return app;
