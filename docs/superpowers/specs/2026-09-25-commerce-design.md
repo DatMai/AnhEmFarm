@@ -1,156 +1,156 @@
-# AnhEmFarm — đặc tả website bán hàng v1
+# AnhEmFarm — Commerce Website v1 Design Specification
 
-Trạng thái: chờ chủ dự án duyệt bản đặc tả. Chưa có implementation plan được duyệt.
+Status: awaiting the owner's review of this written specification. No implementation plan has been approved.
 
-## 1. Quyết định đã được xác nhận
+## 1. Approved direction and goal
 
-Chủ dự án đã duyệt hướng xây dựng cửa hàng hoàn chỉnh và COD, sau đó yêu cầu backend Node.js vì đây là stack làm việc thực tế và xác nhận “DUYỆT”. Stack chính là React, Node.js + TypeScript và PostgreSQL. Django đã bị loại khỏi phương án triển khai.
+The owner approved the complete storefront direction and cash on delivery (COD), then selected Node.js because it is the stack used in his professional work and confirmed approval. The core stack is React, Node.js + TypeScript, and PostgreSQL. Django is excluded. The owner subsequently required English for every repository document and all text inside the app; Vietnamese localization will follow in a later phase.
 
-Mục tiêu: khách đăng ký, đăng nhập, chọn sản phẩm, đặt đơn COD và theo dõi đơn; admin quản lý sản phẩm, khách hàng, tồn kho, bán hàng và xử lý đơn. Dữ liệu phải tồn tại sau khi server khởi động lại. Giữ thương hiệu AnhEmFarm, tiếng Việt, tông đỏ, sử dụng được trên điện thoại.
+Acceptance goal: a customer can register, sign in, select products, place a COD order, and track that order. An administrator can manage products, customers, inventory, sales, and order fulfillment. Business records survive server restarts. The interface retains the AnhEmFarm brand, red palette, and mobile usability.
 
-V1 gồm một cửa hàng, một kho, tiền VND và giao nội địa. Thanh toán trực tuyến, đồng bộ hãng vận chuyển, nhiều người bán, mã giảm giá và tích điểm nằm ngoài v1. Nội dung chính sách và thông tin kinh doanh cần chủ cửa hàng xác nhận trước khi công khai nhận đơn.
+Version 1 serves one store, one warehouse, VND amounts, and domestic delivery. Online payment, carrier synchronization, multiple sellers, coupons, and loyalty points are outside this release. Actual business details and policy text require the owner's confirmation before accepting live orders.
 
-## 2. Kiến trúc đề xuất
+## 2. Proposed architecture
 
-- Frontend: giữ React + TypeScript + Vite; thêm router, quản lý dữ liệu API, tách App.tsx thành các tính năng.
-- Backend: Node.js 24 LTS + TypeScript, NestJS với Express; một ứng dụng chia module, không dùng microservice.
-- Database: PostgreSQL; Prisma quản lý schema, migration và truy vấn. Checkout và thay đổi tồn kho dùng transaction; truy vấn khóa đặc thù phải tham số hóa.
-- API REST `/api/v1`; frontend/API cùng origin qua reverse proxy. Session phía server; không lưu token đăng nhập trong localStorage.
-- Ảnh: adapter storage, local dùng volume bền vững, production dùng S3-compatible object storage; database lưu metadata và object key.
-- Email: SMTP, hộp thư thử nghiệm ở local, PostgreSQL outbox và worker để retry bền vững. Chưa cần Redis.
-- Repository giữ `src/` cho frontend, thêm `server/`, `e2e/`, `deploy/` và `docs/operations/`. Phiên bản dependency và lockfile được pin trong kế hoạch triển khai.
+- Frontend: retain React + TypeScript + Vite; add routing and API data handling, and split the existing `App.tsx` by feature.
+- Backend: Node.js 24 LTS + TypeScript, NestJS using the Express adapter. Use one modular application, without microservices.
+- Database: PostgreSQL. Prisma owns schema, migrations, and ordinary queries. Order and inventory changes use transactions; any database-specific locking query is parameterized.
+- REST API under `/api/v1`. Frontend and API share one origin behind a reverse proxy. Authentication uses server-side sessions; login tokens do not go into localStorage.
+- Product images use a storage adapter: a persistent local volume for development and S3-compatible object storage in production. PostgreSQL holds metadata and object keys.
+- Email uses SMTP, a local test inbox during development, a PostgreSQL outbox, and a worker that retries delivery. Redis is not required in v1.
+- Repository layout retains `src/` for the frontend and adds `server/`, `e2e/`, `deploy/`, and `docs/operations/`. The implementation plan pins dependency versions and lockfiles.
 
-Node 24 thuộc LTS theo [lịch phát hành chính thức](https://nodejs.org/en/about/previous-releases). [Tài liệu NestJS](https://docs.nestjs.com/) mô tả module, guard, validation và testing. NestJS/Prisma là lựa chọn kỹ thuật đề xuất ở đây, không phải yêu cầu của Superpowers.
+Node 24 is an LTS release according to the [official Node.js schedule](https://nodejs.org/en/about/previous-releases). The [NestJS documentation](https://docs.nestjs.com/) describes modules, guards, validation, and testing. NestJS and Prisma are choices proposed by this specification, rather than requirements imposed by Superpowers.
 
-## 3. Module và dữ liệu
+## 3. Modules and data ownership
 
-| Module | Trách nhiệm | Dữ liệu |
+| Module | Responsibility | Primary records |
 | --- | --- | --- |
-| Identity | Tài khoản, xác minh email, mật khẩu, session, quyền | User, Session, AccountToken |
-| Catalog | Danh mục, sản phẩm, SKU/biến thể, ảnh | Category, Product, Variant, Media |
-| Inventory | Tồn khả dụng và lịch sử điều chỉnh | Variant stock, InventoryMovement |
-| Cart | Giỏ và hợp nhất giỏ khách vãng lai | Cart, CartItem |
-| Orders | Báo giá, checkout, đơn, giao nhận COD | CheckoutQuote, Order, OrderItem, OrderEvent |
-| Operations | Admin, báo cáo, audit, cấu hình và nội dung | AuditLog, StoreSettings, ShippingZone, ContentPage |
-| Infrastructure | Email, storage, health check, cấu hình | EmailOutbox |
+| Identity | Accounts, email verification, passwords, sessions, permissions | User, Session, AccountToken |
+| Catalog | Categories, products, SKU variants, images | Category, Product, Variant, Media |
+| Inventory | Available stock and adjustment history | Variant stock, InventoryMovement |
+| Cart | Carts and guest-cart merge | Cart, CartItem |
+| Orders | Quotes, checkout, orders, COD fulfillment | CheckoutQuote, Order, OrderItem, OrderEvent |
+| Operations | Admin workflows, reports, audits, settings, content | AuditLog, StoreSettings, ShippingZone, ContentPage |
+| Infrastructure | Email, storage, health checks, configuration | EmailOutbox |
 
-Mọi thay đổi trạng thái đơn và tồn kho phải qua service nghiệp vụ. Controller hoặc công cụ admin không được bỏ qua các quy tắc này.
+All order status and stock changes pass through business services. Controllers and admin tools cannot bypass these rules by directly updating records.
 
-## 4. Trang và trải nghiệm
+## 4. Pages and customer experience
 
-| Nhóm | Route dự kiến | Chức năng |
+| Group | Proposed routes | Behavior |
 | --- | --- | --- |
-| Công khai | `/`, `/san-pham`, `/san-pham/:slug` | Tìm kiếm, lọc, sắp xếp, phân trang, chi tiết, chọn biến thể |
-| Xác thực | `/dang-ky`, `/dang-nhap`, `/xac-minh-email`, `/quen-mat-khau`, `/dat-lai-mat-khau` | Form, validation, trạng thái gửi, lỗi và hướng khắc phục |
-| Mua hàng | `/gio-hang`, `/thanh-toan` | Số lượng, địa chỉ, báo giá, phí giao, xác nhận COD |
-| Cá nhân | `/tai-khoan`, `/tai-khoan/dia-chi`, `/tai-khoan/don-hang`, `/tai-khoan/don-hang/:id` | Hồ sơ, địa chỉ, xác nhận đơn, danh sách và lịch sử đơn của chính mình |
-| Nội dung | `/ve-chung-toi`, `/lien-he`, `/chinh-sach/:slug` | Nội dung được duyệt, trang 404 và lỗi có đường quay lại |
-| Quản trị | `/admin` và các trang con | Tổng quan, sản phẩm, danh mục, kho, đơn, khách, nội dung/cấu hình |
+| Public shop | `/`, `/products`, `/products/:slug` | Search, category filter, sort, pagination, details, variant selection |
+| Authentication | `/register`, `/login`, `/verify-email`, `/forgot-password`, `/reset-password` | Forms, validation, submission state, errors, recovery guidance |
+| Purchase | `/cart`, `/checkout` | Quantities, delivery address, quote, shipping fee, COD confirmation |
+| Account | `/account`, `/account/addresses`, `/account/orders`, `/account/orders/:id` | Profile, addresses, confirmation, own orders and status history |
+| Content | `/about`, `/contact`, `/policies/:slug` | Approved content, a dedicated 404 page, recoverable errors |
+| Administration | `/admin` and child pages | Dashboard, products, categories, stock, orders, customers, content/settings |
 
-Khách vãng lai được xem và tạo giỏ trên thiết bị; checkout yêu cầu tài khoản hoạt động, email đã xác minh. Giỏ hợp nhất sau đăng nhập bằng khóa yêu cầu để refresh không cộng lại. Logout xóa cache tài khoản trên giao diện; giỏ server vẫn thuộc đúng tài khoản cũ.
+Guests may browse and build a device-local cart. Checkout requires an active account and verified email. After login, merge a guest cart once using a request key so a refresh cannot add items again. Logout removes account data from frontend memory; a server cart remains attached only to its owner.
 
-Mỗi trang có loading/empty/error/success; bộ lọc nằm trong URL. Form hiển thị lỗi theo trường và giữ dữ liệu hợp lệ khi retry. Modal quản lý focus/Escape/trả focus; hiệu ứng tôn trọng reduced motion. Kiểm tra mốc 360px, 768px, 1440px và không tràn ngang.
+Every page has loading, empty, error, and success states as applicable. Filters appear in the URL. Forms show field errors and preserve valid entries on retry. Dialogs manage focus, Escape, and return focus. Motion respects `prefers-reduced-motion`. Validate widths of 360px, 768px, and 1440px without horizontal overflow.
 
-Trang sản phẩm có metadata riêng và nội dung đọc được khi crawler không chạy JavaScript, bằng rendering/prerender phía server; không thay toàn bộ stack vì yêu cầu này. Không cache công khai tài khoản/admin; không đưa các trang riêng tư vào sitemap.
+Product pages have product-specific metadata and content available to crawlers without JavaScript, through server rendering or prerendering. This requirement does not change the selected backend stack. Private account/admin pages must not be publicly cached or included in the sitemap.
 
-## 5. Tài khoản và bảo vệ quyền
+## 5. Accounts and authorization
 
-- CUSTOMER và ADMIN. Đăng ký công khai luôn tạo CUSTOMER; request chứa role đặc quyền không được cấp quyền.
-- Email chuẩn hóa, unique ở database. Mật khẩu 12–128 ký tự, băm Argon2id bằng thư viện được duy trì; không log mật khẩu/token.
-- Token xác minh email hết hạn 24 giờ; reset mật khẩu 1 giờ. Token ngẫu nhiên, database lưu digest, chỉ dùng một lần; phát lại vô hiệu token cũ cùng mục đích.
-- Session cookie HttpOnly, Secure trên production, SameSite=Lax; TTL khách 7 ngày, admin 12 giờ. Logout thu hồi session hiện tại. Reset/đổi mật khẩu hoặc khóa tài khoản thu hồi mọi session.
-- Mutation có kiểm tra origin và CSRF, kể cả đăng nhập. Mọi request kiểm tra user hoạt động, role và quyền sở hữu; khách không được xem đơn/địa chỉ người khác. Không trả hash/session/token trong response thông thường.
-- Login dùng thông báo lỗi chung. Reset/resend trả thông báo trung tính dù email không tồn tại. Bộ đếm rate limit dùng chung giữa các process; trả 429 và Retry-After.
-- Mặc định: login 10 lần/15 phút/cặp IP-email và 60 lần/15 phút/IP; đăng ký 10 lần/giờ/IP; email xác minh/reset 3 lần/giờ/tài khoản và 20 lần/giờ/IP. Cấu hình thay đổi được, có kiểm thử.
-- Admin đầu tiên được tạo bằng lệnh vận hành, không có mật khẩu mặc định trong source. Admin UI quản lý CUSTOMER. Cấp thêm ADMIN qua lệnh vận hành có audit, không qua form đăng ký hoặc form sửa khách.
+- Roles are CUSTOMER and ADMIN. Public registration always creates CUSTOMER; a privileged role submitted by the client is ignored or rejected.
+- Normalize email and enforce uniqueness in PostgreSQL. Passwords are 12–128 characters and hashed with Argon2id through a maintained library. Passwords and tokens never enter logs.
+- Email-verification tokens expire after 24 hours; password-reset tokens after one hour. Tokens are random, stored as digests, usable once, and a newly issued token invalidates an older token for the same purpose.
+- Session cookies are HttpOnly, Secure in production, and SameSite=Lax. Customer session TTL is seven days; admin TTL is 12 hours. Server-side revocation is required. Logout revokes the current session. A password change/reset or account suspension revokes all sessions.
+- Mutations require origin and CSRF checks, including login. Every request checks active account state, role, and resource ownership. Ordinary API responses exclude password hashes, session secrets, and tokens.
+- Login errors are generic. Reset and resend responses do not disclose whether an address exists. Rate limits use shared counters across API processes and return HTTP 429 with `Retry-After`.
+- Defaults: 10 login attempts per 15 minutes per IP/email pair and 60 per 15 minutes per IP; 10 registrations per hour per IP; three verification/reset emails per hour per account and 20 per hour per IP. Make limits configurable and test them.
+- Provision the first admin with an operational command, without a default password in source control. Admin UI manages CUSTOMER accounts. Further ADMIN grants require an audited operational command, not a registration or customer-edit form.
 
-## 6. Sản phẩm, biến thể và ảnh
+## 6. Products, variants, and media
 
-Product: slug unique, tên, mô tả, danh mục, ảnh, DRAFT/PUBLISHED/ARCHIVED. Variant: SKU unique, nhãn biến thể, giá VND nguyên dương, tồn nguyên không âm, trạng thái bán và phiên bản dữ liệu. Khách mua SKU cụ thể, ví dụ Robusta rang hạt hoặc xay khi admin cấu hình.
+Product fields include a unique slug, name, description, category, images, and DRAFT/PUBLISHED/ARCHIVED status. A Variant has a unique SKU, label, positive integer VND price, nonnegative integer stock, sale status, and data version. Customers buy a specific SKU, such as whole-bean or ground Robusta when those variants are configured.
 
-Đơn lưu snapshot tên/SKU/biến thể/giá; sửa sản phẩm không sửa đơn cũ. Sản phẩm đã có đơn được archive, không xóa phá lịch sử. Phân trang API có giới hạn, sort theo allowlist và tiebreaker ổn định.
+An order snapshots the product name, SKU, variant label, and price. Editing a product does not rewrite an existing order. Products with order history are archived rather than deleted. List endpoints use bounded page sizes, allowlisted sort fields, and a stable tie-breaker.
 
-Trà/mật ong giả định, sản phẩm chưa xác nhận giá/quy cách và SKU hết kho không được checkout. Demo seed chỉ chạy khi có cờ explicit ở dev/test, không tự chạy production. Ảnh hiện tại là minh họa đến khi thay ảnh thật. Rượu dâu khóa bán mặc định; chủ cửa hàng chỉ bật sau khi xác nhận thông tin và điều kiện bán, với xác nhận 18+ trong checkout.
+Proposed tea/honey products, products without confirmed pricing or pack details, and out-of-stock SKUs cannot be checked out. Demo seeds run only with an explicit development/test flag, never automatically in production. Current photos remain labeled illustrative until replaced with real photos. Mulberry wine remains blocked for sale by default; the owner must confirm product and sales requirements before enabling it, with an 18+ confirmation in checkout.
 
-Upload chỉ ADMIN, tối đa 5MB/ảnh, kiểm tra nội dung thực JPEG/PNG/WebP và giới hạn pixel; tái mã hóa, loại metadata, tên object ngẫu nhiên. Không fetch URL tùy ý từ client. Chỉ public ảnh sau xử lý thành công.
+Only ADMIN may upload. Limit images to 5 MB, validate actual JPEG/PNG/WebP content and pixel count, re-encode to remove metadata, and generate random object names. Do not fetch arbitrary client-supplied URLs. Publish an image only after processing succeeds.
 
-## 7. Giỏ, báo giá và checkout COD
+## 7. Cart, quote, and COD checkout
 
-Tiền là số nguyên VND. Tổng đơn = tổng giá SKU × số lượng + phí giao; giá sản phẩm là giá cuối cùng hiển thị, không thêm phí/thuế chưa công bố. Server không tin giá và tổng client gửi.
+Amounts use integer VND. The order total equals each server-side SKU price times its quantity, plus the configured delivery fee. Displayed prices are final product prices; no unannounced taxes or fees are added. Client-supplied prices and totals are never authoritative.
 
-1. Số lượng nguyên 1–99 mỗi SKU, tối đa 50 dòng. SKU không bán/không tồn tại bị từ chối.
-2. Thu tên người nhận, số điện thoại, tỉnh/thành thuộc vùng phục vụ, địa chỉ chi tiết, ghi chú tối đa 500 ký tự. Validation server không phụ thuộc một danh sách đơn vị hành chính cũ hardcode.
-3. Báo giá lưu DB, hiệu lực 15 phút, gắn user/dòng hàng/địa chỉ/phí giao. Vùng chưa có ShippingZone đang bật không được đặt đơn; phí giao do admin cấu hình.
-4. Xác nhận bằng quote ID và `Idempotency-Key`. Giá/trạng thái hàng/phí thay đổi làm quote không hợp lệ; trả 409 và yêu cầu xác nhận báo giá mới.
-5. Trong một transaction: khóa SKU theo thứ tự ổn định, kiểm tra/trừ tồn khả dụng, tạo đơn và dòng hàng/lịch sử, đánh dấu quote đã dùng. Một quote chỉ tạo một đơn ngay cả khi đổi key.
-6. Key unique theo user. Cùng key/cùng nội dung trả đơn cũ, cùng key/khác nội dung trả 409. Retry hoặc hai request đồng thời không trừ kho hai lần.
-7. Giỏ có version; tạo quote ghi nhận version và số lượng từng dòng. Khi checkout, chỉ xóa các dòng mua nếu giỏ vẫn cùng version; nếu giỏ đã đổi, giữ giỏ và báo khách kiểm tra lại. Không làm mất món thêm trong lúc checkout.
-8. Ghi email outbox cùng transaction, gửi ngoài transaction. SMTP lỗi không hủy đơn thành công. Transaction thất bại rollback toàn bộ; deadlock/serialization failure retry có giới hạn, hết lượt trả lỗi có thể thử lại.
+1. Quantities are integers from 1 to 99 per SKU, with at most 50 cart lines. Reject SKUs that do not exist or are not for sale.
+2. Collect recipient name, phone, a province/city in a served zone, detailed address, and an optional note of at most 500 characters. Server validation must not rely on a hard-coded, outdated administrative-area list.
+3. Store a quote in PostgreSQL for 15 minutes, tied to the user, lines, address, and delivery fee. An inactive or unconfigured ShippingZone cannot accept orders; admin configures delivery fees.
+4. Submit quote ID and `Idempotency-Key`. If price, sale status, or fee changed, return HTTP 409 and require the customer to review a fresh quote.
+5. Within one transaction, lock SKU rows in stable order, check and deduct available stock, create Order/OrderItem/OrderEvent, and mark the quote used. One quote creates at most one order even if a new idempotency key is submitted.
+6. The key is unique per user. The same key and payload returns the existing order; the same key with a different payload returns 409. Retries and concurrent requests cannot deduct stock twice.
+7. The cart has a version. Quote creation records the version and line quantities. After checkout, remove purchased lines only if the cart version remains unchanged; if the cart changed, preserve it and ask the customer to review. Do not erase an item added during checkout.
+8. Create an email-outbox record in the order transaction and send the email afterward. An SMTP failure cannot erase a committed order. Roll back the whole transaction on failure. Retry deadlocks/serialization errors a bounded number of times, then return a retryable error.
 
-Không giữ transaction trong lúc gọi dịch vụ ngoài. API lỗi có code ổn định, thông báo tiếng Việt, lỗi theo trường; không lộ stack trace. Lưu snapshot người nhận để chỉnh sổ địa chỉ không thay đơn cũ.
+Do not hold a database transaction open during an external call. API errors have stable codes, English messages, and field-level details, without stack traces. Snapshot recipient data on the order so editing an address book entry cannot change an old order.
 
-## 8. Vòng đời đơn và tồn kho
+## 8. Order states, stock, and COD collection
 
-| Từ | Sang | Quyền và điều kiện |
+| From | To | Permission and condition |
 | --- | --- | --- |
-| PENDING | CONFIRMED | ADMIN nhận xử lý |
-| PENDING | CANCELLED | Chủ đơn hoặc ADMIN, có lý do |
-| CONFIRMED | CANCELLED | ADMIN, chưa gửi hàng, có lý do |
-| CONFIRMED | SHIPPING | ADMIN ghi đơn vị/mã vận đơn hoặc ghi cửa hàng tự giao |
-| SHIPPING | DELIVERED | ADMIN xác nhận đã giao |
-| SHIPPING | RETURNED | ADMIN xác nhận giao thất bại và đã thực nhận lại hàng |
+| PENDING | CONFIRMED | ADMIN accepts the order for processing |
+| PENDING | CANCELLED | Order owner or ADMIN, with a reason |
+| CONFIRMED | CANCELLED | ADMIN, before shipping, with a reason |
+| CONFIRMED | SHIPPING | ADMIN records carrier/tracking or explicitly marks store delivery |
+| SHIPPING | DELIVERED | ADMIN confirms delivery |
+| SHIPPING | RETURNED | ADMIN confirms failed delivery and physical receipt of returned items |
 
-Không được bỏ bước hoặc chuyển ngược. Khách không tự sửa tổng/trạng thái/địa chỉ đơn; muốn đổi địa chỉ trước xác nhận thì hủy và đặt lại. PENDING quá 24 giờ được đánh dấu cần xử lý, không tự hủy.
+Skipping or reversing a transition is rejected. Customers cannot change order totals, state, or recipient details after creation. To change an address before confirmation, cancel and place a new order. Mark PENDING orders older than 24 hours for attention; do not cancel them automatically.
 
-CANCELLED hoàn tồn một lần trong cùng transaction chuyển trạng thái. RETURNED yêu cầu số lượng nhập lại từng SKU trong khoảng 0 đến số đã giao; phần hỏng không tăng tồn. Stock movement ghi actor/lý do/đơn. Điều chỉnh tồn admin cũng dùng khóa/phiên bản để không ghi đè checkout; stock không âm.
+CANCELLED restores stock exactly once in the same status-change transaction. RETURNED records restock quantity per SKU from zero to the delivered quantity; damaged goods do not increase available stock. Every stock movement includes actor, reason, and order reference. Admin stock adjustments also use locking/version checks to avoid overwriting checkout changes. Stock cannot become negative.
 
-COD tách trạng thái DUE/COLLECTED. Chỉ ADMIN được đánh dấu COLLECTED khi đơn DELIVERED và xác nhận đã thu. Bấm lặp không tạo lần thu thứ hai. Sửa thu nhầm về DUE cần lý do và audit, giữ lịch sử cũ. Không có hoàn tiền tự động hoặc workflow hoàn hàng sau khi đã nhận ở v1; ngoại lệ được xử lý thủ công và ghi chú, không tạo giao dịch tiền giả.
+COD has separate DUE/COLLECTED states. Only ADMIN may mark it COLLECTED after the order is DELIVERED and collection is confirmed. A repeated action creates no second collection record. Reverting a mistaken collection to DUE needs a reason and audit history. V1 does not perform automatic refunds or a post-delivery customer-return workflow; exceptions are handled manually and noted without inventing a monetary transaction.
 
-## 9. Quản trị và báo cáo
+## 9. Administration and reporting
 
-Layout React riêng cho admin; mọi `/api/v1/admin` kiểm tra ADMIN tại server. Chức năng: CRUD danh mục/sản phẩm/biến thể/ảnh, publish/archive, điều chỉnh kho có lý do, tìm khách, xem lịch sử mua, khóa/mở CUSTOMER, lọc/xử lý đơn, chỉnh phí giao và nội dung.
+Use a separate React admin layout. All `/api/v1/admin` endpoints enforce ADMIN on the server. Admin capabilities: category/product/variant/image management, publish/archive, reasoned stock adjustments, customer search and purchase history, customer suspension/reactivation, order filtering and fulfillment, and delivery-fee/content editing.
 
-Audit cho thay đổi sản phẩm, kho, tài khoản, trạng thái/thu COD, phí giao và nội dung: actor/thời gian/đối tượng/thay đổi cần thiết, giảm thiểu thông tin nhạy cảm. API không cho sửa hoặc xóa audit.
+Audit product, stock, customer, order, COD, delivery-fee, and content changes with actor, time, target, and the necessary change details. Minimize sensitive fields. The API cannot edit or delete audit entries.
 
-Dashboard dùng múi giờ Asia/Ho_Chi_Minh, khoảng ngày gồm ngày đầu/cuối, query theo UTC. “Giá trị đơn đã giao” = tổng đơn DELIVERED theo ngày giao. “COD đã thu” = tiền đang COLLECTED theo thời điểm ghi thu; thao tác sửa thu sai được loại khỏi chỉ số này nhưng còn audit. “COD chưa thu” = đơn DELIVERED/DUE. Không tính đơn CANCELLED/RETURNED vào doanh số đã giao, không gọi những chỉ số này là lợi nhuận. Phân trang danh sách và giới hạn khoảng truy vấn báo cáo.
+Dashboard dates use Asia/Ho_Chi_Minh. A date range includes both end dates and is converted to UTC for queries. “Delivered order value” totals DELIVERED orders by delivery date. “COD collected” is money currently marked COLLECTED by collection time; correcting a mistaken collection removes it from this metric while preserving audit history. “COD due” includes DELIVERED/DUE orders. CANCELLED and RETURNED orders do not count toward delivered order value. Do not label these figures profit. Paginate lists and bound report ranges.
 
-## 10. Nội dung và triển khai
+## 10. Content and production operations
 
-- Admin chỉnh trang giới thiệu/liên hệ/chính sách bằng text hoặc Markdown được sanitize. Draft có trạng thái rõ; chưa duyệt không giả làm chính sách có hiệu lực.
-- Docker/Compose cho local/staging. Production: một origin HTTPS, frontend/reverse proxy, API/worker, PostgreSQL bền vững, object storage. Không dùng Vite dev server cho production.
-- `.env.example` không chứa secret. Production fail-fast khi thiếu origin, DB, session secret, SMTP/storage bắt buộc hoặc đang dùng cấu hình demo.
-- Migration versioned, chạy riêng trước đổi traffic; không schema reset/push phá dữ liệu. Tài liệu rollback và restore phải được kiểm tra.
-- Liveness kiểm tra process; readiness kiểm tra DB/schema. Response health công khai không lộ credentials hoặc topology.
-- Log có request ID, độ trễ và mức lỗi; redact cookie/token/mật khẩu/email/địa chỉ. Error UI có retry an toàn.
-- Backup DB hằng ngày và trước migration, lưu ngoài máy ứng dụng, ít nhất 30 ngày; ảnh có versioning/backup tương ứng. Restore thử trên môi trường cô lập, kiểm tra đơn/tồn/ảnh và vô hiệu session sau restore.
-- Worker email có lease phục hồi sau crash, retry backoff có giới hạn, theo dõi lỗi hết lượt. SMTP timeout có thể gây email trùng nhưng không tạo đơn trùng.
-- Chỉ mở nhận đơn thật khi có giá/SKU/stock, phí/vùng giao, thông tin kinh doanh/hỗ trợ, chính sách được duyệt, domain/HTTPS và email hoạt động. Khi thiếu đầu vào, vẫn phát triển/test bằng fixture tách biệt; ghi rõ chưa đạt điều kiện launch.
+- Admin edits about/contact/policy pages as sanitized text or Markdown. Draft status is explicit; unapproved content must not appear as a policy already in force.
+- Docker/Compose supports local and staging use. Production serves a single HTTPS origin through a frontend/reverse proxy, API and worker, persistent PostgreSQL, and object storage. Do not use the Vite development server in production.
+- `.env.example` contains names and non-sensitive examples only. Production fails fast without the required origin, DB, session secret, SMTP, or storage configuration, or when demo settings are enabled.
+- Use versioned migrations before routing traffic. Never reset or push a destructive schema to production. Document application rollback and test data restoration.
+- Liveness checks the process; readiness checks database/schema requirements. Public health responses reveal no credentials or infrastructure topology.
+- Logs carry request IDs, latency, and error severity; redact cookies, tokens, passwords, email addresses, and postal addresses. UI error boundaries offer safe retry.
+- Back up PostgreSQL daily and before migrations, store backups off the application host for at least 30 days, and version/back up images correspondingly. Test restoration in an isolated environment, checking orders, stock, images, and session invalidation after restoration.
+- The email worker uses recoverable leases, bounded retries with backoff, and reports exhausted jobs. An SMTP timeout might duplicate an email, but must never duplicate an order.
+- Accept live orders only after the owner confirms real prices/SKUs/stock, delivery zones/fees, business and support details, approved policies, domain/HTTPS, and working email. Development and tests may use clearly separated fixtures; missing inputs must not be replaced with invented live-looking data.
 
-## 11. Kiểm chứng bắt buộc
+## 11. Required verification
 
-TDD cho auth, phân quyền, giá, checkout, tồn kho, trạng thái. Unit test quy tắc thuần; integration test PostgreSQL thật cho transaction/constraints; E2E browser cho khách và admin. Không thay PostgreSQL bằng SQLite trong kiểm thử tranh chấp kho.
+Use TDD for authentication, authorization, pricing, checkout, inventory, and order states. Unit tests cover pure rules; integration tests use real PostgreSQL for constraints and transactions; browser E2E covers customer and admin journeys. SQLite cannot substitute for PostgreSQL in stock-concurrency tests.
 
-1. Đăng ký → xác minh → login → đổi/reset mật khẩu → logout; token hết hạn/dùng lại bị từ chối, khóa user thu hồi session.
-2. CUSTOMER không vào API admin hoặc xem/sửa đơn/địa chỉ người khác; payload role không nâng quyền.
-3. Nháp/thiếu giá/hết kho không checkout; validation và rate limit đúng; input đặc biệt không được thực thi HTML/SQL.
-4. Tổng client sửa không có hiệu lực; giá/phí đổi sau quote yêu cầu xác nhận lại.
-5. Hai người tranh món cuối chỉ một đơn thành công; request lặp/quote dùng lại không tạo đơn trùng; lỗi transaction không để lại đơn/kho dở dang.
-6. Hủy hoàn tồn một lần; trạng thái trái phép bị từ chối; nhập lại không vượt số giao; sửa kho đồng thời với mua không mất cập nhật.
-7. Mutation thiếu CSRF/session bị từ chối; ảnh giả định dạng/quá lớn bị chặn; lỗi SMTP không mất đơn.
-8. E2E khách mua COD → admin xác nhận/giao/ghi thu → khách thấy trạng thái; refresh/restart giữ dữ liệu, logout không lộ cache tài khoản.
-9. Build/typecheck/test/CI đạt; kiểm tra mobile/keyboard/reduced motion/metadata và restore trước khi tuyên bố production-ready.
+1. Register, verify, log in, change/reset password, and log out. Expired/reused tokens fail; account suspension revokes sessions.
+2. CUSTOMER cannot call admin endpoints or read/modify another person's order or address; a submitted role cannot grant privilege.
+3. Draft, unpriced, and out-of-stock SKUs cannot check out. Validation and rate limits work. Special input is not executed as HTML or SQL.
+4. Tampered client totals do not affect server totals; changes after a quote require customer confirmation.
+5. Two customers race for the final unit: only one order succeeds. Repeated requests/used quotes create no duplicate; a failed transaction leaves neither a partial order nor partial inventory change.
+6. Cancellation restores stock once; invalid status transitions fail; return restock cannot exceed shipped quantity; concurrent stock adjustment and purchase do not lose updates.
+7. Mutations without valid session/CSRF fail; invalid or oversized images fail; SMTP failure does not lose the order.
+8. Browser journey: customer buys COD, admin confirms/ships/records collection, customer sees the right state. Refresh/server restart preserves records; logout does not leak account cache.
+9. Build, typecheck, tests, and CI pass. Check mobile layout, keyboard, reduced motion, metadata, and backup restoration before making a production-readiness claim.
 
-Mỗi lần kiểm chứng ghi lệnh, môi trường và kết quả thực. Frontend build xanh không chứng minh backend hoặc deployment hoạt động.
+Every verification report includes the command, environment, and actual result. A green frontend build does not prove that backend or deployment works.
 
-## 12. Chia công việc cho kế hoạch sau duyệt
+## 12. Work groups for planning after approval
 
-A. Foundation: Node/TypeScript, DB/migration, CI, auth/session/email và phân quyền.
-B. Catalog: trang công khai, SKU/media, admin và tồn kho.
-C. Commerce: giỏ, quote/COD/đơn, admin fulfillment, báo cáo và audit.
-D. Completion: nội dung, accessibility/responsive/SEO, deploy, backup/restore, review cuối.
+A. Foundation: Node/TypeScript, database/migrations, CI, auth/session/email, and permissions.
+B. Catalog: public pages, SKUs/media, admin, and inventory.
+C. Commerce: cart, quotes/COD/orders, admin fulfillment, reporting, and audit.
+D. Completion: content, accessibility/responsiveness/SEO, deployment, backup/restore, and final review.
 
-Đây là các nhóm phụ thuộc trong bản phát hành, chưa phải implementation plan. Kế hoạch sau duyệt phải chỉ rõ file/API contracts/test thất bại/bước triển khai/lệnh kiểm chứng cho từng task. Agent đọc spec cùng plan và cập nhật bàn giao; không ghi khống approval, review hoặc test.
+These are dependent groups within a release, not an implementation plan. After approval, the plan must specify file paths, API contracts, expected failing tests, implementation steps, and verification commands for each task. Agents read this specification with the plan and update the handoff. Do not fabricate approval, review, deployment, or test results.
 
-## 13. Tự rà soát
+## 13. Self-review
 
-Đã rà soát: Node.js thay Django; prototype tách dữ liệu bán thật; quyền và ownership; tiền VND; khóa tồn, quote/idempotency, hủy/hoàn về; email ngoài transaction; doanh số tách thu COD; đầu vào vận hành tách khỏi fixture test. Không có placeholder kỹ thuật chưa định nghĩa. Các thông tin giá/liên hệ/cấu hình dịch vụ là dữ liệu vận hành do chủ cửa hàng cung cấp, không được tự bịa. Bản đặc tả này vẫn chờ chủ dự án review.
+Checked: Node.js replaces Django; prototype and live business data are distinct; roles and ownership are explicit; VND amounts, stock locks, quotes, idempotency, cancellation/returns, email outside transactions, and separate COD collection metrics are defined. Operational inputs are separate from development fixtures. No unresolved technical placeholder is presented as a finished requirement. This written document still awaits owner review.

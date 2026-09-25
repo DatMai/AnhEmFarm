@@ -21,9 +21,11 @@ Build a complete production commerce website: customer registration/login, brows
 - Checked the requested upstream repository and recorded its commit in `SUPERPOWERS.md`.
 - Added shared agent guidance, thin tool entry points, and discovery notes.
 - No product behavior was changed in this documentation stage.
-- Owner approved the commerce direction and COD, then explicitly chose Node.js as his professional stack and confirmed “DUYỆT”. React + Node.js/TypeScript + PostgreSQL is approved; Django is rejected.
+- Owner approved the commerce direction and COD, then explicitly chose Node.js as his professional stack and confirmed approval. React + Node.js/TypeScript + PostgreSQL is approved; Django is rejected.
+- Owner later required English for every repository document and all text inside the app; Vietnamese localization is deferred.
 - Spec written and self-reviewed at `docs/superpowers/specs/2026-09-25-commerce-design.md`; its concrete technical and business rules await written-spec approval.
-- No implementation plan or execution method is approved. No backend code has been written.
+- No implementation plan or execution method is approved. No backend code has been written. The existing storefront and written specification have been translated to English without changing the approved commerce direction.
+- After the language change, `npm run build` passed. Browser checks showed the English catalog, Coffee filter returning two items, an item added to and removed from the interest list, and English search for Arabica returning one item. These checks cover the current visual storefront only.
 
 ## Next action
 

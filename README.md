@@ -1,39 +1,37 @@
 # AnhEmFarm
 
-Hướng dẫn cộng tác cho Codex, Claude và các công cụ agent khác nằm trong [AGENTS.md](AGENTS.md). Đọc [trạng thái bàn giao](docs/agents/HANDOFF.md) và [nguồn Superpowers gốc](docs/agents/SUPERPOWERS.md) trước khi tiếp tục. Hướng React + Node.js/TypeScript + PostgreSQL và COD đã được duyệt; [đặc tả bán hàng](docs/superpowers/specs/2026-09-25-commerce-design.md) đang chờ review trước bước lập kế hoạch. Backend chưa được triển khai.
+The current site is a visual storefront and interest list for mulberries, coffee, and proposed tea and honey ranges. English is the language of the app and all project documentation. Vietnamese localization is planned for a later phase.
 
-Website giới thiệu nông sản và danh mục quan tâm cho AnhEmFarm. Giai đoạn này tập trung vào dâu tằm, cà phê, trà và mật ong.
+Read [AGENTS.md](AGENTS.md), the [handoff](docs/agents/HANDOFF.md), and the [original Superpowers reference](docs/agents/SUPERPOWERS.md) before continuing work. The React + Node.js/TypeScript + PostgreSQL direction and cash on delivery were approved. The [commerce design specification](docs/superpowers/specs/2026-09-25-commerce-design.md) awaits review before implementation planning. The backend has not been built.
 
-## Chạy tại máy
+## Run locally
 
-Yêu cầu Node.js 20.19+ hoặc 22.12+.
+Use Node.js 20.19+ or 22.12+ for the current Vite frontend.
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Mở địa chỉ do Vite hiển thị. Để tạo bản dùng cho hosting tĩnh:
+Open the local URL printed by Vite. To check the static build:
 
 ```bash
 npm run build
 npm run preview
 ```
 
-Thư mục xuất bản là `dist/`.
+The static output is in `dist/`.
 
-## Nội dung và trạng thái
+## Current content and limitations
 
-- Danh mục nằm trong `src/catalog.ts`. Chỉnh tên, mô tả, ảnh và trạng thái ở đây.
-- Ảnh minh họa được tạo riêng cho dự án, nằm trong `public/images/`.
-- Giá, quy cách, tình trạng hàng và kênh liên hệ chưa được cung cấp nên website chưa hiển thị hoặc tự tạo các thông tin này.
-- Trà và mật ong là các dòng giả định, được đánh dấu **Dự kiến** và không thể thêm vào danh sách.
-- Danh sách quan tâm được lưu trên trình duyệt bằng `localStorage`. Người xem có thể sao chép danh sách, nhưng website chưa nhận đơn hoặc thanh toán trực tuyến.
+- Edit product names, descriptions, images, and statuses in `src/catalog.ts`.
+- Illustrative images created for this project are in `public/images/`.
+- Prices, pack sizes, inventory, and official contact details have not been provided. The site does not invent them.
+- Tea and honey are proposed ranges. They cannot be added to the interest list.
+- The interest list uses browser `localStorage` and can be copied. The current site does not accept orders or online payments.
 
-## Khi chuẩn bị bán hàng trực tuyến
+Before live sales, confirm prices, SKUs, inventory, real product photos, business and support information, shipping rates, and approved policies. Mulberry wine requires confirmed product details and an appropriate age-control flow before online sales are enabled.
 
-Xác nhận giá, quy cách, tồn kho, ảnh thật, thông tin kinh doanh và chính sách giao hàng; sau đó kết nối một hệ thống nhận đơn, thanh toán và quản lý sản phẩm. Đối với rượu dâu tằm, bổ sung thông tin sản phẩm và luồng kiểm soát độ tuổi phù hợp trước khi mở bán trực tuyến.
+## Technology
 
-## Công nghệ
-
-React, TypeScript, Vite và CSS thuần. Dữ liệu sản phẩm tách khỏi giao diện để dễ chuyển sang API hoặc CMS khi cần.
+The existing frontend uses React, TypeScript, Vite, and plain CSS. Product data is separate from the interface so it can later be served by the planned API.

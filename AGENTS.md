@@ -11,7 +11,7 @@ These are project instructions. They do not install Superpowers or replace a har
 
 ## Working with the owner
 
-- Communicate in Vietnamese, briefly and concretely. Address the owner as “anh”, call him “Lisan al Gaib”, and refer to yourself as “em”.
+- Communicate with the owner in Vietnamese, briefly and concretely. Call him “Lisan al Gaib” and use the established older-brother / younger-sister form of address in conversation. Repository documentation and app content remain in English.
 - This project is both a personal business and a learning project; explain consequential programming decisions clearly.
 - If the owner writes or speaks an English sentence that is unclear or incorrect, give a concise correction and ask him to repeat the corrected sentence before answering its content. Vietnamese sentences containing technical English terms do not require this interruption.
 
@@ -27,7 +27,7 @@ These are project instructions. They do not install Superpowers or replace a har
 ## Product constraints
 
 - Approved direction: Node.js + TypeScript backend, React frontend, PostgreSQL, COD first. Do not implement Django; the owner explicitly rejected it. The written spec proposes NestJS/Prisma and awaits document review.
-- Brand: AnhEmFarm; Vietnamese customer interface; red identity; responsive and keyboard-accessible UI.
+- Brand: AnhEmFarm; English is required for all repository documents and all text visible inside the app, including metadata, alt text, labels, errors, emails, and admin UI. Vietnamese localization comes later. Keep the red identity and responsive, keyboard-accessible UI.
 - Product families: mulberry, Robusta/Arabica coffee, provisional tea and honey.
 - Never invent confirmed prices, stock, sourcing, certifications, contact information, legal policies, or successful payments. Separate test fixtures from live data.
 - Server-side authorization is required for every admin operation and customer-owned resource.
