@@ -14,8 +14,11 @@ export interface Harness {
   db: PrismaClient;
   resolve<T>(token: Type<T>): T;
   request(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; body: any; headers: Headers }>;
+  client(): Client;
   close(): Promise<void>;
 }
+
+export interface Client { request: Harness['request'] }
 
 export async function startHarness(): Promise<Harness> {
   loadDotEnv({ path: resolve(process.cwd(), '../.env.dev'), quiet: true });
@@ -38,10 +41,43 @@ export async function startHarness(): Promise<Harness> {
   const server = app.getHttpServer() as Server;
   const address = server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${address.port}`;
-  return {
+  const harness: Harness = {
     baseUrl,
     db,
     resolve<T>(token: Type<T>): T { return app.get(token); },
+    client() {
+      const cookies = new Map<string, string>();
+      let csrfToken = '';
+      const capture = (headers: Headers) => {
+        for (const cookie of headers.getSetCookie()) {
+          const pair = cookie.split(';', 1)[0];
+          const index = pair.indexOf('=');
+          if (index < 0) continue;
+          const name = pair.slice(0, index);
+          const value = pair.slice(index + 1);
+          if (value) cookies.set(name, value); else cookies.delete(name);
+        }
+      };
+      const cookieHeader = () => [...cookies].map(([name, value]) => `${name}=${value}`).join('; ');
+      const refreshCsrf = async () => {
+        const result = await harness.request('GET', '/api/v1/auth/csrf', undefined, cookies.size ? { Cookie: cookieHeader() } : {});
+        capture(result.headers);
+        csrfToken = result.status === 200 ? result.body.token : '';
+      };
+      return { async request(method, path, body, headers = {}) {
+        const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+        if (unsafe && !csrfToken) await refreshCsrf();
+        const finalHeaders = { ...(cookies.size ? { Cookie: cookieHeader() } : {}),
+          ...(unsafe ? { Origin: config.origin, 'X-CSRF-Token': csrfToken } : {}), ...headers };
+        const result = await harness.request(method, path, body, finalHeaders);
+        capture(result.headers);
+        if (unsafe && ['/api/v1/auth/login', '/api/v1/auth/logout'].includes(path) && result.status < 300) {
+          csrfToken = '';
+          await refreshCsrf();
+        }
+        return result;
+      } };
+    },
     async request(method, path, body, headers = {}) {
       const response = await fetch(new URL(path, baseUrl), {
         method,
@@ -64,4 +100,5 @@ export async function startHarness(): Promise<Harness> {
       await db.$disconnect();
     },
   };
+  return harness;
 }

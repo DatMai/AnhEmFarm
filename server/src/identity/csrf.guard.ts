@@ -1,5 +1,5 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
-import { Controller, Get, Inject, Injectable, Req, Res } from '@nestjs/common';
+import { Controller, Get, Inject, Injectable, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { parseCookie, stringifySetCookie } from 'cookie';
 import type { Request, Response } from 'express';
 import { APP_CONFIG, type AppConfig } from '../config.js';
@@ -66,6 +66,7 @@ export class CsrfController {
   @Get('csrf')
   get(@Req() request: SessionCsrfRequest, @Res({ passthrough: true }) response: Response): { token: string } {
     response.setHeader('Cache-Control', 'no-store');
+    if (parseCookie(request.header('cookie') ?? '').aef_session && !request.sessionCsrfSecret) throw new UnauthorizedException();
     return { token: request.sessionCsrfSecret ? this.csrf.sessionToken(request.sessionCsrfSecret) : this.csrf.issue(response) };
   }
 }

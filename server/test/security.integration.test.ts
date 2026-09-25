@@ -31,10 +31,10 @@ describe('request security', () => {
   beforeAll(async () => {
     first = await startHarness();
     second = await startHarness();
-    await first.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'loginIp', '127.0.0.1') } });
+    await first.db.rateBucket.deleteMany({ where: { key: { in: [rateKey(readConfig(), 'loginIp', '127.0.0.1'), rateKey(readConfig(), 'loginPair', '127.0.0.1:')] } } });
   });
   afterAll(async () => {
-    if (first) await first.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'loginIp', '127.0.0.1') } });
+    if (first) await first.db.rateBucket.deleteMany({ where: { key: { in: [rateKey(readConfig(), 'loginIp', '127.0.0.1'), rateKey(readConfig(), 'loginPair', '127.0.0.1:')] } } });
     await second?.close(); await first?.close();
   });
 
@@ -75,7 +75,8 @@ describe('request security', () => {
     expect(forged.status).toBe(403);
     expect(forged.body.code).toBe('CSRF_REJECTED');
     const valid = await first.request('POST', '/api/v1/auth/login', {}, { Origin: origin, Cookie: cookie.split(';')[0], 'X-CSRF-Token': r.body.token });
-    expect(valid.status).toBe(404); // Identity route belongs to Task 4.
+    expect(valid.status).toBe(422);
+    expect(valid.body.fields).toEqual(expect.arrayContaining([expect.objectContaining({ field: 'email', code: expect.any(String) })]));
   });
 
   it('shares atomic rate counters across app instances', async () => {
@@ -99,7 +100,7 @@ describe('request security', () => {
     try {
       for (let index = 0; index < 10; index++) {
         const app = index % 2 ? first : second;
-        expect((await app.request('POST', '/api/v1/auth/login', body, { ...headers, 'X-Forwarded-For': `203.0.113.${index + 1}` })).status).toBe(404);
+        expect((await app.request('POST', '/api/v1/auth/login', body, { ...headers, 'X-Forwarded-For': `203.0.113.${index + 1}` })).status).toBe(401);
       }
       const blocked = await second.request('POST', '/api/v1/auth/login', body, headers);
       expect(blocked.status).toBe(429);

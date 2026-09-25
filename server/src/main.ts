@@ -8,12 +8,14 @@ import type { INestApplication } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
+import { parseCookie } from 'cookie';
 import { AppModule } from './app.module.js';
 import { readConfig, validateConfig, type AppConfig } from './config.js';
 import { SafeExceptionFilter } from './http/error.filter.js';
 import { securityMiddleware } from './http/security.middleware.js';
 import { CsrfGuard } from './identity/csrf.guard.js';
 import { RateLimitService } from './identity/rate-limit.service.js';
+import { SESSION_COOKIE, SessionService } from './identity/session.service.js';
 
 export async function createApp(config: AppConfig): Promise<INestApplication> {
   validateConfig(config);
@@ -39,7 +41,13 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
     });
     next();
   });
-  app.use(securityMiddleware(config, app.get(CsrfGuard), app.get(RateLimitService)));
+  const sessions = app.get(SessionService);
+  app.use(securityMiddleware(config, app.get(CsrfGuard), app.get(RateLimitService), async request => {
+    const raw = parseCookie(request.header('cookie') ?? '')[SESSION_COOKIE];
+    if (!raw) return;
+    try { request.sessionCsrfSecret = (await sessions.findValid(raw)).csrfSecret; }
+    catch { /* Cookie remains present, so CSRF validation fails closed. */ }
+  }));
   app.useGlobalFilters(new SafeExceptionFilter());
   await app.init();
   return app;
