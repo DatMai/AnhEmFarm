@@ -1,5 +1,7 @@
 # AnhEmFarm
 
+Hướng dẫn cộng tác cho Codex, Claude và các công cụ agent khác nằm trong [AGENTS.md](AGENTS.md). Đọc [trạng thái bàn giao](docs/agents/HANDOFF.md) và [nguồn Superpowers gốc](docs/agents/SUPERPOWERS.md) trước khi tiếp tục. Hướng React + Node.js/TypeScript + PostgreSQL và COD đã được duyệt; [đặc tả bán hàng](docs/superpowers/specs/2026-09-25-commerce-design.md) đang chờ review trước bước lập kế hoạch. Backend chưa được triển khai.
+
 Website giới thiệu nông sản và danh mục quan tâm cho AnhEmFarm. Giai đoạn này tập trung vào dâu tằm, cà phê, trà và mật ong.
 
 ## Chạy tại máy
