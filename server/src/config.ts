@@ -28,7 +28,22 @@ export interface AppConfig {
   demoEnabled: boolean;
 }
 
+const applicationConfig = z.object({
+  mode: z.enum(['development', 'test', 'production']),
+  origin: z.url(),
+  databaseUrl: z.url().refine(value => value.startsWith('postgres://') || value.startsWith('postgresql://')),
+  sessionSecret: z.string(),
+  emailPayloadKey: z.string(),
+  smtp: z.object({ host: z.string(), port: z.number().int().min(1).max(65535) }),
+  storage: z.object({ bucket: z.string(), endpoint: z.string() }),
+  salesEnabled: z.boolean(),
+  demoEnabled: z.boolean(),
+});
+
 export function validateConfig(config: AppConfig): AppConfig {
+  if (!applicationConfig.safeParse(config).success) {
+    throw new Error('Invalid configuration');
+  }
   if (config.mode === 'production' &&
     (!config.origin.startsWith('https://') || config.demoEnabled ||
      !config.sessionSecret || !config.emailPayloadKey ||
