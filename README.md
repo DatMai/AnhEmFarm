@@ -2,7 +2,7 @@
 
 The current site is a visual storefront and interest list for mulberries, coffee, and proposed tea and honey ranges. English is the language of the app and all project documentation. Vietnamese localization is planned for a later phase.
 
-Read [AGENTS.md](AGENTS.md), the [handoff](docs/agents/HANDOFF.md), and the [original Superpowers reference](docs/agents/SUPERPOWERS.md) before continuing work. The React + Node.js/TypeScript + PostgreSQL direction and cash on delivery were approved. The [commerce design specification](docs/superpowers/specs/2026-09-25-commerce-design.md) awaits review before implementation planning. The backend has not been built.
+Read [AGENTS.md](AGENTS.md), the [handoff](docs/agents/HANDOFF.md), and the [original Superpowers reference](docs/agents/SUPERPOWERS.md) before continuing work. The React + Node.js/TypeScript + PostgreSQL direction and cash on delivery were approved. The [commerce design specification](docs/superpowers/specs/2026-09-25-commerce-design.md) has been advanced into the [implementation plan](docs/superpowers/plans/2026-09-25-commerce.md). The plan awaits review and execution-method selection. The backend has not been built.
 
 ## Run locally
 

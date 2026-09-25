@@ -23,13 +23,20 @@ Build a complete production commerce website: customer registration/login, brows
 - No product behavior was changed in this documentation stage.
 - Owner approved the commerce direction and COD, then explicitly chose Node.js as his professional stack and confirmed approval. React + Node.js/TypeScript + PostgreSQL is approved; Django is rejected.
 - Owner later required English for every repository document and all text inside the app; Vietnamese localization is deferred.
-- Spec written and self-reviewed at `docs/superpowers/specs/2026-09-25-commerce-design.md`; its concrete technical and business rules await written-spec approval.
-- No implementation plan or execution method is approved. No backend code has been written. The existing storefront and written specification have been translated to English without changing the approved commerce direction.
+- Spec written and self-reviewed at `docs/superpowers/specs/2026-09-25-commerce-design.md`. After it was presented in English, the owner requested continued implementation. The assistant interpreted this continuation as permission to advance the presented spec into planning; no separate explicit written-spec approval is quoted.
+- Created and self-reviewed `docs/superpowers/plans/2026-09-25-commerce.md`: 17 dependent tasks with file ownership, API/schema contracts, test examples, implementation steps, commands and release gates. Plan and execution method await review. No backend code has been written. The storefront and repository documents remain in English.
 - After the language change, `npm run build` passed. Browser checks showed the English catalog, Coffee filter returning two items, an item added to and removed from the interest list, and English search for Arabica returning one item. These checks cover the current visual storefront only.
 
 ## Next action
 
-Ask the owner to review the written spec. After approval, invoke upstream writing-plans and create the implementation plan; obtain plan review and execution-method selection before coding. Earlier direction approval does not approve the document written afterward.
+Present the concrete implementation plan and ask for plan review plus execution-method selection, as required by original writing-plans. Recommend subagent-driven implementation with per-task reviews due to account/inventory/order risks. After selection, read that execution skill and original using-git-worktrees, preserve the existing preview, and begin Task 1. No fresh spec approval is being requested.
+
+## Planning environment observations
+
+- Host Node 26.0.0/npm 11.12.1; planned Node 24.21.0. Switch the implementation environment before verification.
+- Docker CLI exists; daemon was unavailable at its local socket during inspection. Start an isolated local PostgreSQL environment for integration tests; never substitute SQLite.
+- Registry inspection found Prisma latest pointing to a release candidate. The plan deliberately selects stable Prisma 7.10.0 and NestJS 11.2.6. No product dependencies were installed during planning.
+- This stage changes documentation only. Existing frontend build results above remain historical; no backend test or deployment success is claimed.
 
 ## External inputs for a real launch
 

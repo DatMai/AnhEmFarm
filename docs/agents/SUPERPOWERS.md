@@ -30,7 +30,7 @@ Read the actual skill and its referenced files before applying that stage; this 
 5. Obtain plan review and execution-method selection before implementation. Use the applicable upstream workspace/progress mechanism and preserve useful handoff information in tracked documentation without secrets.
 6. Execute TDD, review, verification, and branch-finishing stages. Store factual review/verification evidence with the plan or handoff.
 
-Current stage: written-spec review. The owner approved Node.js/TypeScript + React + PostgreSQL and COD. `docs/superpowers/specs/2026-09-25-commerce-design.md` is written and self-reviewed, awaiting document approval. There is no implementation plan yet. Do not create empty documents to imply completed stages.
+Current stage: implementation-plan review and execution-method selection. The owner's continuation request followed presentation of the English spec and was interpreted as permission to advance it into planning. This is recorded as an interpretation, not a separate quoted approval. The concrete plan is `docs/superpowers/plans/2026-09-25-commerce.md`. It has been self-reviewed; no implementation task has been executed or approved by marking a checkbox. Original writing-plans requires plan review and execution-method selection before implementation.
 
 ## Prior baseline
 

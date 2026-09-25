@@ -26,7 +26,7 @@ These are project instructions. They do not install Superpowers or replace a har
 
 ## Product constraints
 
-- Approved direction: Node.js + TypeScript backend, React frontend, PostgreSQL, COD first. Do not implement Django; the owner explicitly rejected it. The written spec proposes NestJS/Prisma and awaits document review.
+- Approved direction: Node.js + TypeScript backend, React frontend, PostgreSQL, COD first. Do not implement Django; the owner explicitly rejected it. The written spec selects NestJS/Prisma; the concrete implementation plan is ready for review and execution-method selection.
 - Brand: AnhEmFarm; English is required for all repository documents and all text visible inside the app, including metadata, alt text, labels, errors, emails, and admin UI. Vietnamese localization comes later. Keep the red identity and responsive, keyboard-accessible UI.
 - Product families: mulberry, Robusta/Arabica coffee, provisional tea and honey.
 - Never invent confirmed prices, stock, sourcing, certifications, contact information, legal policies, or successful payments. Separate test fixtures from live data.

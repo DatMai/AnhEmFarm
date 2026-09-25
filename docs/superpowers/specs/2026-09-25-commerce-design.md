@@ -1,6 +1,6 @@
 # AnhEmFarm — Commerce Website v1 Design Specification
 
-Status: awaiting the owner's review of this written specification. No implementation plan has been approved.
+Status: advanced to implementation planning after the owner's request to continue following presentation of this English specification. This interpretation is recorded in the plan; the implementation plan and execution method still require review.
 
 ## 1. Approved direction and goal
 
@@ -153,4 +153,4 @@ These are dependent groups within a release, not an implementation plan. After a
 
 ## 13. Self-review
 
-Checked: Node.js replaces Django; prototype and live business data are distinct; roles and ownership are explicit; VND amounts, stock locks, quotes, idempotency, cancellation/returns, email outside transactions, and separate COD collection metrics are defined. Operational inputs are separate from development fixtures. No unresolved technical placeholder is presented as a finished requirement. This written document still awaits owner review.
+Checked: Node.js replaces Django; prototype and live business data are distinct; roles and ownership are explicit; VND amounts, stock locks, quotes, idempotency, cancellation/returns, email outside transactions, and separate COD collection metrics are defined. Operational inputs are separate from development fixtures. No unresolved technical placeholder is presented as a finished requirement. The subsequent continuation request was interpreted as permission to advance this presented specification into planning; no implementation approval is fabricated.
