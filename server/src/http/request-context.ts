@@ -1,14 +1,16 @@
 import { createHmac } from 'node:crypto';
+import { isIP } from 'node:net';
 import type { Request } from 'express';
 import type { AppConfig } from '../config.js';
 
 export function requestIp(request: Request, config: AppConfig): string {
   const socketIp = request.socket.remoteAddress ?? 'unknown';
   const forwarded = request.header('x-forwarded-for');
-  // The configured address must identify the directly connected reverse proxy.
+  // A single trusted reverse proxy must append the IP it observed (or overwrite the header).
+  // Earlier X-Forwarded-For entries may have been supplied by the client and are never trusted.
   if (forwarded && config.trustedProxyAddress && socketIp === config.trustedProxyAddress) {
-    const first = forwarded.split(',')[0]?.trim();
-    if (first && first.length <= 64) return first;
+    const observed = forwarded.split(',').at(-1)?.trim();
+    if (observed && isIP(observed)) return observed;
   }
   return socketIp;
 }

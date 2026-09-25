@@ -1,10 +1,27 @@
 import { randomUUID } from 'node:crypto';
+import type { AddressInfo } from 'node:net';
+import { Body, Controller, Module, Post } from '@nestjs/common';
+import { NestFactory } from '@nestjs/core';
+import type { Request } from 'express';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { readConfig } from '../src/config.js';
 import { RateLimitService } from '../src/identity/rate-limit.service.js';
 import { parseBody, uuidSchema } from '../src/http/schemas.js';
+import { rateKey, requestIp } from '../src/http/request-context.js';
+import { SafeExceptionFilter } from '../src/http/error.filter.js';
 import { z } from 'zod';
 import { startHarness, type Harness } from './harness.js';
+
+@Controller('validate')
+class ValidationController {
+  @Post()
+  validate(@Body() body: unknown): unknown {
+    return parseBody(z.strictObject({ id: uuidSchema, note: z.string().max(20) }), body);
+  }
+}
+
+@Module({ controllers: [ValidationController] })
+class ValidationTestModule {}
 
 describe('request security', () => {
   let first: Harness;
@@ -14,8 +31,12 @@ describe('request security', () => {
   beforeAll(async () => {
     first = await startHarness();
     second = await startHarness();
+    await first.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'loginIp', '127.0.0.1') } });
   });
-  afterAll(async () => { await second?.close(); await first?.close(); });
+  afterAll(async () => {
+    if (first) await first.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'loginIp', '127.0.0.1') } });
+    await second?.close(); await first?.close();
+  });
 
   it('rejects missing and foreign Origin before accepting a mutation', async () => {
     for (const headers of [{}, { Origin: 'https://attacker.example' }] as Record<string, string>[]) {
@@ -69,25 +90,57 @@ describe('request security', () => {
   });
 
   it('returns Retry-After after the login pair policy is exhausted across instances', async () => {
+    const ipKey = rateKey(readConfig(), 'loginIp', '127.0.0.1');
+    await first.db.rateBucket.deleteMany({ where: { key: ipKey } });
     const csrf = await first.request('GET', '/api/v1/auth/csrf');
     const headers = { Origin: origin, Cookie: csrf.headers.get('set-cookie')!.split(';')[0], 'X-CSRF-Token': csrf.body.token };
     const body = { email: `limit-${randomUUID()}@example.test`, password: 'x' };
-    for (let index = 0; index < 10; index++) {
-      const app = index % 2 ? first : second;
-      expect((await app.request('POST', '/api/v1/auth/login', body, { ...headers, 'X-Forwarded-For': `203.0.113.${index + 1}` })).status).toBe(404);
+    const pairKey = rateKey(readConfig(), 'loginPair', `127.0.0.1:${body.email}`);
+    try {
+      for (let index = 0; index < 10; index++) {
+        const app = index % 2 ? first : second;
+        expect((await app.request('POST', '/api/v1/auth/login', body, { ...headers, 'X-Forwarded-For': `203.0.113.${index + 1}` })).status).toBe(404);
+      }
+      const blocked = await second.request('POST', '/api/v1/auth/login', body, headers);
+      expect(blocked.status).toBe(429);
+      expect(blocked.body.code).toBe('RATE_LIMITED');
+      expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
+    } finally {
+      await first.db.rateBucket.deleteMany({ where: { key: { in: [ipKey, pairKey] } } });
     }
-    const blocked = await second.request('POST', '/api/v1/auth/login', body, headers);
-    expect(blocked.status).toBe(429);
-    expect(blocked.body.code).toBe('RATE_LIMITED');
-    expect(Number(blocked.headers.get('retry-after'))).toBeGreaterThan(0);
   });
 
-  it('rejects unknown fields, invalid UUID and long strings but treats SQL-like text literally', () => {
-    const schema = z.strictObject({ id: uuidSchema, note: z.string().max(20) });
+  it('uses only the verified last proxy hop and rejects invalid forwarded IPs', () => {
+    const config = { ...readConfig(), trustedProxyAddress: '127.0.0.1' };
+    const makeRequest = (peer: string, forwarded: string) => ({
+      socket: { remoteAddress: peer },
+      header: (name: string) => name === 'x-forwarded-for' ? forwarded : undefined,
+    }) as unknown as Request;
+    expect(requestIp(makeRequest('127.0.0.1', '198.51.100.1, 203.0.113.7'), config)).toBe('203.0.113.7');
+    expect(requestIp(makeRequest('127.0.0.1', '198.51.100.1, attacker'), config)).toBe('127.0.0.1');
+    expect(requestIp(makeRequest('127.0.0.2', '198.51.100.1, 203.0.113.7'), config)).toBe('127.0.0.2');
+  });
+
+  it('returns HTTP 422 with safe field codes and preserves SQL-like text as literal data', async () => {
+    const app = await NestFactory.create(ValidationTestModule, { logger: false });
+    app.useGlobalFilters(new SafeExceptionFilter());
+    await app.listen(0, '127.0.0.1');
+    const address = app.getHttpServer().address() as AddressInfo;
+    const url = `http://127.0.0.1:${address.port}/validate`;
+    const post = async (body: unknown) => {
+      const response = await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+      return { status: response.status, body: await response.json() };
+    };
     const id = randomUUID();
-    expect(() => parseBody(schema, { id, note: 'ok', extra: 1 })).toThrow();
-    expect(() => parseBody(schema, { id: 'not-uuid', note: 'ok' })).toThrow();
-    expect(() => parseBody(schema, { id, note: 'x'.repeat(21) })).toThrow();
-    expect(parseBody(schema, { id, note: "'; DROP TABLE users" })).toEqual({ id, note: "'; DROP TABLE users" });
+    try {
+      for (const body of [{ id, note: 'ok', extra: 1 }, { id: 'not-uuid', note: 'ok' }, { id, note: 'x'.repeat(21) }]) {
+        const result = await post(body);
+        expect(result.status).toBe(422);
+        expect(result.body.code).toBe('VALIDATION_FAILED');
+        expect(result.body.fields).toEqual(expect.arrayContaining([expect.objectContaining({ field: expect.any(String), code: expect.any(String) })]));
+        expect(JSON.stringify(result.body)).not.toContain('stack');
+      }
+      expect(await post({ id, note: "'; DROP TABLE users" })).toEqual({ status: 201, body: { id, note: "'; DROP TABLE users" } });
+    } finally { await app.close(); }
   });
 });
