@@ -1,5 +1,6 @@
 import { Controller, Get, ServiceUnavailableException } from '@nestjs/common';
-import { readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaService } from './db/prisma.service.js';
 
@@ -15,13 +16,20 @@ export class HealthController {
   @Get('ready')
   async ready(): Promise<{ status: 'ok' }> {
     try {
-      const rows = await this.prisma.$queryRawUnsafe<Array<{ migration_name: string }>>(
-        'SELECT migration_name FROM _prisma_migrations WHERE finished_at IS NOT NULL AND rolled_back_at IS NULL',
+      const rows = await this.prisma.$queryRawUnsafe<Array<{ migration_name: string; checksum: string; finished: boolean; rolled_back: boolean }>>(
+        'SELECT migration_name, checksum, finished_at IS NOT NULL AS finished, rolled_back_at IS NOT NULL AS rolled_back FROM _prisma_migrations',
       );
-      const expected = readdirSync(resolve(process.cwd(), 'prisma/migrations'), { withFileTypes: true })
-        .filter(entry => entry.isDirectory()).map(entry => entry.name);
-      const applied = new Set(rows.map(row => row.migration_name));
-      if (expected.length > 0 && expected.every(name => applied.has(name))) return { status: 'ok' };
+      const migrationsPath = resolve(process.cwd(), 'prisma/migrations');
+      const expected = readdirSync(migrationsPath, { withFileTypes: true })
+        .filter(entry => entry.isDirectory()).map(entry => ({
+          name: entry.name,
+          checksum: createHash('sha256').update(readFileSync(resolve(migrationsPath, entry.name, 'migration.sql'))).digest('hex'),
+        }));
+      const noFailedMigration = rows.every(row => row.finished || row.rolled_back);
+      if (expected.length > 0 && noFailedMigration && expected.every(migration =>
+        rows.some(row => row.migration_name === migration.name && row.checksum === migration.checksum && row.finished && !row.rolled_back))) {
+        return { status: 'ok' };
+      }
     } catch {
       // Readiness deliberately reveals no database details.
     }

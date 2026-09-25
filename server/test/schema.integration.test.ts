@@ -21,4 +21,9 @@ describe('commerce schema constraints', () => {
   it('rejects a fractional cart quantity', async () => {
     await expect(h.db.$executeRaw`INSERT INTO cart_items (id, "cartId", "variantId", quantity, "createdAt", "updatedAt") VALUES (gen_random_uuid(), ${s.cartId}::uuid, ${s.variant.id}::uuid, '1.5', now(), now())`).rejects.toThrow();
   });
+
+  it.each([0, 100])('rejects cart quantity %i at the database boundary', async quantity => {
+    await expect(h.db.$executeRaw`INSERT INTO cart_items (id, "cartId", "variantId", quantity, "createdAt", "updatedAt") VALUES (gen_random_uuid(), ${s.cartId}::uuid, ${s.variant.id}::uuid, ${quantity}, now(), now())`).rejects.toThrow();
+    expect(await h.db.cartItem.count({ where: { cartId: s.cartId, variantId: s.variant.id } })).toBe(0);
+  });
 });

@@ -1,1 +1,1 @@
-CREATE DATABASE anhemfarm_test;
+CREATE DATABASE anhemfarm_commerce_test;
