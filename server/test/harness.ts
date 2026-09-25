@@ -1,16 +1,18 @@
 import { resolve } from 'node:path';
 import type { AddressInfo } from 'node:net';
 import type { Server } from 'node:http';
-import type { INestApplication } from '@nestjs/common';
+import type { INestApplication, Type } from '@nestjs/common';
 import { config as loadDotEnv } from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient } from '../src/generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { Pool } from 'pg';
 import { createApp } from '../src/main.js';
 import { readConfig } from '../src/config.js';
 
 export interface Harness {
   baseUrl: string;
   db: PrismaClient;
+  resolve<T>(token: Type<T>): T;
   request(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; body: any; headers: Headers }>;
   close(): Promise<void>;
 }
@@ -22,7 +24,7 @@ export async function startHarness(): Promise<Harness> {
     throw new Error('Integration tests require a database ending in _test');
   }
   const config = { ...readConfig(), mode: 'test' as const, databaseUrl };
-  const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
+  const db = new PrismaClient({ adapter: new PrismaPg(new Pool({ connectionString: databaseUrl, max: 5, connectionTimeoutMillis: 5000 })) });
   let app: INestApplication | undefined;
   try {
     app = await createApp(config);
@@ -39,6 +41,7 @@ export async function startHarness(): Promise<Harness> {
   return {
     baseUrl,
     db,
+    resolve<T>(token: Type<T>): T { return app.get(token); },
     async request(method, path, body, headers = {}) {
       const response = await fetch(new URL(path, baseUrl), {
         method,

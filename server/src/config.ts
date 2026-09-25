@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 import { config as loadDotEnv } from 'dotenv';
 import { z } from 'zod';
 
+export const APP_CONFIG = 'APP_CONFIG';
+
 const environment = z.object({
   APP_MODE: z.enum(['development', 'test', 'production']).default('development'),
   APP_ORIGIN: z.url(),

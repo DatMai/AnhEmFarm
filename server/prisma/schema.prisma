@@ -1,8 +1,393 @@
-// Task 1 client scaffold. Task 2 replaces it with the commerce schema and migration.
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client"
+  output = "../src/generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
+}
+
+enum Role {
+ CUSTOMER
+ ADMIN
+}
+enum UserStatus {
+ ACTIVE
+ SUSPENDED
+}
+enum TokenPurpose {
+ VERIFY
+ RESET
+}
+enum ProductStatus {
+ DRAFT
+ PUBLISHED
+ ARCHIVED
+}
+enum QuoteStatus {
+ OPEN
+ USED
+}
+enum OrderStatus {
+ PENDING
+ CONFIRMED
+ SHIPPING
+ DELIVERED
+ CANCELLED
+ RETURNED
+}
+enum CollectionState {
+ DUE
+ COLLECTED
+}
+enum ContentStatus {
+ DRAFT
+ PUBLISHED
+}
+
+model User {
+ id String @id @default(uuid()) @db.Uuid
+ email String @unique
+ passwordHash String
+ name String
+ role Role @default(CUSTOMER)
+ status UserStatus @default(ACTIVE)
+ verifiedAt DateTime?
+ authVersion Int @default(1)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ sessions Session[]
+ tokens AccountToken[]
+ addresses Address[]
+ cart Cart?
+ merges CartMerge[]
+ quotes CheckoutQuote[]
+ orders Order[]
+ actorEvents OrderEvent[]
+ movements InventoryMovement[]
+ audits AuditLog[]
+ @@map("users")
+}
+model Session {
+ id String @id @default(uuid()) @db.Uuid
+ digest String @unique
+ userId String @db.Uuid
+ user User @relation(fields:[userId], references:[id], onDelete:Restrict)
+ csrfDigest String
+ expiresAt DateTime
+ authVersion Int
+ createdAt DateTime @default(now())
+ @@index([expiresAt])
+ @@map("sessions")
+}
+model AccountToken {
+ id String @id @default(uuid()) @db.Uuid
+ digest String @unique
+ userId String @db.Uuid
+ user User @relation(fields:[userId], references:[id], onDelete:Restrict)
+ purpose TokenPurpose
+ expiresAt DateTime
+ usedAt DateTime?
+ createdAt DateTime @default(now())
+ @@index([userId,purpose])
+ @@map("account_tokens")
+}
+model RateBucket {
+ key String @id
+ count Int
+ windowEndsAt DateTime
+ @@index([windowEndsAt])
+ @@map("rate_buckets")
+}
+model Address {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ recipient String
+ phone String
+ zoneId String @db.Uuid
+ zone ShippingZone @relation(fields:[zoneId],references:[id],onDelete:Restrict)
+ line1 String
+ line2 String?
+ postalCode String?
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([userId])
+ @@map("addresses")
+}
+model Category {
+ id String @id @default(uuid()) @db.Uuid
+ slug String @unique
+ name String
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ products Product[]
+ @@map("categories")
+}
+model Product {
+ id String @id @default(uuid()) @db.Uuid
+ slug String @unique
+ categoryId String @db.Uuid
+ category Category @relation(fields:[categoryId],references:[id],onDelete:Restrict)
+ name String
+ description String
+ status ProductStatus @default(DRAFT)
+ confirmed Boolean @default(false)
+ restricted18 Boolean @default(false)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ variants Variant[]
+ media ProductMedia[]
+ @@index([status,categoryId])
+ @@map("products")
+}
+model Variant {
+ id String @id @default(uuid()) @db.Uuid
+ productId String @db.Uuid
+ product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+ sku String @unique
+ label String
+ packDetails String
+ priceVnd BigInt?
+ stock Int @default(0)
+ saleEnabled Boolean @default(false)
+ version Int @default(1)
+ commercialVersion Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ cartItems CartItem[]
+ orderItems OrderItem[]
+ movements InventoryMovement[]
+ @@map("variants")
+}
+model Media {
+ id String @id @default(uuid()) @db.Uuid
+ objectKey String @unique
+ mime String
+ width Int
+ height Int
+ illustrative Boolean @default(false)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ products ProductMedia[]
+ @@map("media")
+}
+model ProductMedia {
+ id String @id @default(uuid()) @db.Uuid
+ productId String @db.Uuid
+ mediaId String @db.Uuid
+ product Product @relation(fields:[productId],references:[id],onDelete:Restrict)
+ media Media @relation(fields:[mediaId],references:[id],onDelete:Restrict)
+ sortPosition Int
+ createdAt DateTime @default(now())
+ @@unique([productId,mediaId])
+ @@unique([productId,sortPosition])
+ @@map("product_media")
+}
+model Cart {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @unique @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ items CartItem[]
+ @@map("carts")
+}
+model CartItem {
+ id String @id @default(uuid()) @db.Uuid
+ cartId String @db.Uuid
+ variantId String @db.Uuid
+ cart Cart @relation(fields:[cartId],references:[id],onDelete:Restrict)
+ variant Variant @relation(fields:[variantId],references:[id],onDelete:Restrict)
+ quantity Int
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@unique([cartId,variantId])
+ @@map("cart_items")
+}
+model CartMerge {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ key String
+ payloadDigest String
+ resultJson Json
+ createdAt DateTime @default(now())
+ @@unique([userId,key])
+ @@map("cart_merges")
+}
+model CheckoutQuote {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ expiresAt DateTime
+ cartVersion Int
+ linesJson Json
+ addressJson Json
+ shippingZoneId String @db.Uuid
+ shippingZone ShippingZone @relation(fields:[shippingZoneId],references:[id],onDelete:Restrict)
+ shippingZoneVersion Int
+ feeVnd BigInt
+ status QuoteStatus @default(OPEN)
+ ageConfirmed Boolean @default(false)
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ order Order?
+ @@index([userId,expiresAt])
+ @@map("checkout_quotes")
+}
+model Order {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ quoteId String @unique @db.Uuid
+ quote CheckoutQuote @relation(fields:[quoteId],references:[id],onDelete:Restrict)
+ idempotencyKey String
+ requestDigest String
+ subtotalVnd BigInt
+ shippingVnd BigInt
+ totalVnd BigInt
+ recipientJson Json
+ status OrderStatus @default(PENDING)
+ collectionState CollectionState @default(DUE)
+ collectedAt DateTime?
+ deliveredAt DateTime?
+ tracking String?
+ version Int @default(1)
+ cartPreserved Boolean @default(false)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ items OrderItem[]
+ events OrderEvent[]
+ movements InventoryMovement[]
+ @@unique([userId,idempotencyKey])
+ @@index([userId,createdAt])
+ @@index([status,createdAt])
+ @@map("orders")
+}
+model OrderItem {
+ id String @id @default(uuid()) @db.Uuid
+ orderId String @db.Uuid
+ variantId String @db.Uuid
+ order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ variant Variant @relation(fields:[variantId],references:[id],onDelete:Restrict)
+ name String
+ sku String
+ label String
+ priceVnd BigInt
+ quantity Int
+ createdAt DateTime @default(now())
+ @@unique([orderId,variantId])
+ @@map("order_items")
+}
+model OrderEvent {
+ id String @id @default(uuid()) @db.Uuid
+ orderId String @db.Uuid
+ order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ actorId String @db.Uuid
+ actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ fromStatus OrderStatus?
+ toStatus OrderStatus
+ reason String?
+ detailsJson Json
+ operationKey String
+ payloadDigest String
+ resultJson Json
+ createdAt DateTime @default(now())
+ @@unique([orderId,operationKey])
+ @@index([orderId,createdAt])
+ @@map("order_events")
+}
+model InventoryMovement {
+ id String @id @default(uuid()) @db.Uuid
+ variantId String @db.Uuid
+ variant Variant @relation(fields:[variantId],references:[id],onDelete:Restrict)
+ delta Int
+ actorId String @db.Uuid
+ actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ orderId String? @db.Uuid
+ order Order? @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ reason String
+ operationKey String @unique
+ payloadDigest String
+ resultJson Json
+ createdAt DateTime @default(now())
+ @@index([variantId,createdAt])
+ @@map("inventory_movements")
+}
+model AuditLog {
+ id String @id @default(uuid()) @db.Uuid
+ actorId String @db.Uuid
+ actor User @relation(fields:[actorId],references:[id],onDelete:Restrict)
+ action String
+ targetType String
+ targetId String
+ changesJson Json
+ createdAt DateTime @default(now())
+ @@index([createdAt])
+ @@map("audit_logs")
+}
+model StoreSettings {
+ id String @id @default(uuid()) @db.Uuid
+ salesEnabled Boolean @default(false)
+ wineEnabled Boolean @default(false)
+ businessName String?
+ supportEmail String?
+ supportPhone String?
+ launchConfirmedAt DateTime?
+ wineConfirmedAt DateTime?
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@map("store_settings")
+}
+model ShippingZone {
+ id String @id @default(uuid()) @db.Uuid
+ code String @unique
+ displayName String
+ enabled Boolean @default(false)
+ feeVnd BigInt
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ addresses Address[]
+ quotes CheckoutQuote[]
+ @@map("shipping_zones")
+}
+model ContentPage {
+ id String @id @default(uuid()) @db.Uuid
+ slug String @unique
+ title String
+ source String
+ status ContentStatus @default(DRAFT)
+ approvedAt DateTime?
+ version Int @default(1)
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@map("content_pages")
+}
+model EmailOutbox {
+ id String @id @default(uuid()) @db.Uuid
+ dedupeKey String @unique
+ recipient String
+ template String
+ payload String?
+ attempts Int @default(0)
+ availableAt DateTime
+ leaseId String?
+ leaseUntil DateTime?
+ sentAt DateTime?
+ lastErrorCode String?
+ exhaustedAt DateTime?
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([availableAt,leaseUntil])
+ @@map("email_outbox")
 }

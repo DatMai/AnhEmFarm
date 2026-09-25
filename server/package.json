@@ -13,7 +13,7 @@
     "test:integration": "npm run db:generate && vitest run --config vitest.config.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
-    "db:seed:test": "tsx prisma/seed-test.ts",
+    "db:seed:demo": "tsx prisma/seed-demo.ts",
     "admin": "tsx src/cli/admin.ts"
   },
   "dependencies": {
@@ -23,6 +23,7 @@
     "@nestjs/platform-express": "11.2.6",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "argon2": "^0.44.0",
     "cookie": "2.0.1",
     "dotenv": "17.3.1",
     "helmet": "8.3.0",
