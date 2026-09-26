@@ -7,7 +7,7 @@ import { IdentityService } from '../identity/identity.service.js';
 import type { Actor } from '../identity/session.service.js';
 import { canPurchase } from '../catalog/catalog.service.js';
 
-export interface CartView { version: number; items: Array<{ variantId: string; quantity: number; productName: string; variantLabel: string; priceVnd: number | null; available: boolean }> }
+export interface CartView { version: number; items: Array<{ variantId: string; quantity: number; productName: string; variantLabel: string; priceVnd: number | null; restricted18: boolean; available: boolean }> }
 export interface MergeInput { key: string; items: Array<{ variantId: string; quantity: number }> }
 const invalid = (code: string): never => { throw new UnprocessableEntityException({ code }); };
 const conflict = (code: string): never => { throw new ConflictException({ code }); };
@@ -25,7 +25,7 @@ export class CartService {
     const cart = await tx.cart.findUniqueOrThrow({ where: { id: cartId }, include: { items: { include: { variant: { include: { product: true } } }, orderBy: { variantId: 'asc' } } } });
     const settings = (await tx.storeSettings.findFirst()) ?? { salesEnabled: false, wineEnabled: false };
     return { version: cart.version, items: cart.items.map(item => ({ variantId: item.variantId, quantity: item.quantity,
-      productName: item.variant.product.name, variantLabel: item.variant.label,
+      productName: item.variant.product.name, restricted18: item.variant.product.restricted18, variantLabel: item.variant.label,
       priceVnd: item.variant.priceVnd === null || !Number.isSafeInteger(Number(item.variant.priceVnd)) ? null : Number(item.variant.priceVnd),
       available: canPurchase(item.variant.product, item.variant, settings) && item.variant.stock >= item.quantity })) };
   }

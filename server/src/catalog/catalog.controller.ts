@@ -5,6 +5,8 @@ import { categoryListQuery, parse, productQuery, slug } from './catalog.schemas.
 @Controller()
 export class CatalogController {
   constructor(private readonly catalog: CatalogService) {}
+  @Get('shipping-zones')
+  shippingZones(@Query() query: unknown) { const { page, pageSize } = parse(categoryListQuery, query); return this.catalog.shippingZones(page, pageSize); }
   @Get('categories')
   categories(@Query() query: unknown) {
     const { page, pageSize } = parse(categoryListQuery, query);

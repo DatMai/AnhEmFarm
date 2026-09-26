@@ -11,3 +11,16 @@
 .footer .brand{color:#fff}.footer .brand>span:last-child>span{color:#ffd3a7}
 .admin-shell{min-height:65vh}.admin-shell h1{font-size:clamp(30px,4vw,42px);letter-spacing:-1.5px}.admin-nav,.admin-actions,.admin-heading{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:20px 0}.admin-nav{border-bottom:1px solid #e9ded5;padding-bottom:14px}.admin-nav a{padding:9px 13px;border-radius:5px;color:#7c343e;font-weight:700}.admin-nav a.active{background:#a9273b;color:white}.admin-heading{justify-content:space-between}.admin-list{list-style:none;padding:0;margin:20px 0}.admin-list li{display:flex;align-items:center;flex-wrap:wrap;gap:12px;padding:15px 0;border-bottom:1px solid #eee4dc;font-size:13px}.admin-list li>a:first-child,.admin-list strong{font-weight:800;color:#942338}.admin-list small,.admin-list span{color:#746960}.admin-list button,.admin-actions button,.admin-list a:last-child,.admin-shell .error-message button{padding:7px 10px;border:1px solid #a9273b;border-radius:5px;background:white;color:#a9273b;font-weight:700}.admin-form{display:grid;gap:14px;width:min(600px,100%);padding:25px;margin:22px 0;background:#fff;border:1px solid #eee4dc;border-radius:8px}.admin-form label,.admin-label{display:grid;gap:6px;font-size:13px;font-weight:700}.admin-form input:not([type=checkbox]),.admin-form textarea,.admin-form select,.admin-label select{width:100%;padding:10px;border:1px solid #d5c8c0;border-radius:5px;background:white;color:#302624}.admin-form textarea{min-height:110px}.admin-form .admin-check,.admin-check{display:flex;align-items:center;gap:8px;font-size:12px}.admin-form .button{justify-self:start}.admin-images{display:flex;gap:12px;flex-wrap:wrap;margin:15px 0}.admin-images img{width:130px;height:130px;object-fit:cover;border-radius:5px}.admin-upload{display:grid;gap:8px;font-size:13px;font-weight:700}.admin-shell progress{display:block;margin:12px 0;accent-color:#a9273b}
 .admin-variant-form{display:flex;flex-wrap:wrap;align-items:end;gap:8px;width:100%}.admin-variant-form label{display:grid;gap:4px;font-size:11px;font-weight:700}.admin-variant-form input{min-width:100px;max-width:190px;padding:7px;border:1px solid #d5c8c0;border-radius:4px}.admin-variant-form button{padding:8px 10px;border:1px solid #a9273b;border-radius:5px;background:white;color:#a9273b;font-weight:700}
+
+.commerce { max-width: 860px; }
+.commerce-card { border: 1px solid #e5d8d8; border-radius: 12px; padding: 1.25rem; margin: 1rem 0; background: #fff; }
+.commerce button, .commerce input, .commerce select, .commerce textarea { font: inherit; padding: .65rem; max-width: 100%; }
+.commerce button { cursor: pointer; margin: .4rem .6rem .4rem 0; }
+.commerce button:disabled { cursor: default; opacity: .55; }
+.commerce fieldset { border: 1px solid #e5d8d8; padding: 1rem; margin: 1rem 0; min-width: 0; }
+.commerce dl { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+.commerce dd { text-align: right; margin: 0; }
+.account-tabs { display: flex; flex-wrap: wrap; gap: 1rem; margin: 1rem 0; }
+.commerce [role=alert] { color: #a21b26; }
+.commerce input[type=checkbox] { margin-right: .5rem; }
+.commerce a, .commerce button, .variant-list button { overflow-wrap: anywhere; }

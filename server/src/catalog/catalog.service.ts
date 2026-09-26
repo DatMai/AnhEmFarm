@@ -42,6 +42,12 @@ const missing = (): never => { throw new NotFoundException({ code: 'NOT_FOUND' }
 
 @Injectable()
 export class CatalogService {
+  async shippingZones(page: number, pageSize: number) {
+    const where = { enabled: true, feeVnd: { gte: 0n } };
+    const [rows, total] = await Promise.all([this.db.shippingZone.findMany({ where, orderBy: { id: 'asc' }, skip: (page - 1) * pageSize, take: pageSize, select: { id: true, displayName: true, feeVnd: true } }), this.db.shippingZone.count({ where })]);
+    return { items: rows.map(z => ({ ...z, feeVnd: safeNumber(z.feeVnd) })), page, pageSize, total };
+  }
+
   constructor(private readonly db: PrismaService, private readonly audit: AuditService,
     private readonly identity: IdentityService) {}
   private async assertAdmin(tx: Prisma.TransactionClient, actor: Actor): Promise<void> {

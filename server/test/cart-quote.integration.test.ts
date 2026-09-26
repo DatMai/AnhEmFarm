@@ -53,6 +53,7 @@ describe('cart and quote persistence', () => {
     const settings = await h.db.storeSettings.findFirstOrThrow();
     await h.db.storeSettings.update({ where: { id: settings.id }, data: { wineEnabled: true } });
     await h.db.product.update({ where: { id: s.product.id }, data: { restricted18: true, version: { increment: 1 } } });
+    expect((await h.resolve(CartService).get(actor())).items[0]).toMatchObject({ restricted18: true });
     await expect(quote.create(actor(), input)).rejects.toMatchObject({ status: 422 });
     const created = await quote.create(actor(), { ...input, ageConfirmed: true });
     expect(created.items[0]).toMatchObject({ restricted18: true, productVersion: 2, eligible: true });
@@ -60,6 +61,14 @@ describe('cart and quote persistence', () => {
     expect((await h.db.checkoutQuote.findUniqueOrThrow({ where: { id: created.id } })).expiresAt.getTime()).toBeLessThan(Date.now());
     await h.db.product.update({ where: { id: s.product.id }, data: { restricted18: false } });
     await h.db.storeSettings.update({ where: { id: settings.id }, data: { wineEnabled: false } });
+  });
+  it('lists enabled delivery zones with server fees', async () => {
+    const disabled = await h.db.shippingZone.create({ data: { code: `DISABLED-${randomUUID()}`, displayName: 'Disabled test zone', enabled: false, feeVnd: 1n } });
+    const items: Array<{id:string;feeVnd:number}> = [];
+    for (let page = 1; ; page++) { const r = await h.request('GET', `/api/v1/shipping-zones?page=${page}&pageSize=100`); expect(r.status).toBe(200); items.push(...r.body.items); if (items.length >= r.body.total) break; }
+    expect(items.find(z => z.id === s.zone.id)).toMatchObject({ feeVnd: 30000 });
+    expect(items.some(z => z.id === disabled.id)).toBe(false);
+    expect((await h.request('GET', '/api/v1/shipping-zones?pageSize=101')).status).toBe(422);
   });
   it('enforces session and strict HTTP bodies', async () => {
     expect((await h.request('GET', '/api/v1/cart')).status).toBe(401);

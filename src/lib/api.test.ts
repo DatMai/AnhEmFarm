@@ -1,5 +1,5 @@
 import { afterEach, expect, test, vi } from 'vitest'
-import { api, ApiError, clearCsrf } from './api'
+import { api, ApiError, clearCsrf, cancelPrivateRequests } from './api'
 afterEach(() => { clearCsrf(); vi.unstubAllGlobals() })
 test('mutation sends same-origin cookies and a fresh CSRF token', async () => {
   const fetcher = vi.fn(async (path: RequestInfo | URL, _options?: RequestInit) => String(path).endsWith('/auth/csrf')
@@ -22,4 +22,19 @@ test('backend-shaped validation issues become safe field errors', async () => {
   await expect(api('/auth/register')).rejects.toMatchObject({ status: 422, fields: {
     email: ['Please enter a valid email address.'], password: ['Please use at least 12 characters.'],
   } })
+})
+
+test('session clearing aborts private requests without cancelling public verification', async () => {
+  let privateSignal: AbortSignal | undefined
+  let publicSignal: AbortSignal | undefined
+  vi.stubGlobal('fetch', vi.fn(async (path: RequestInfo | URL, options?: RequestInit) => {
+    if (String(path).endsWith('/orders')) privateSignal = options?.signal ?? undefined
+    else publicSignal = options?.signal ?? undefined
+    return new Response(JSON.stringify({}))
+  }))
+  await api('/orders')
+  await api('/auth/verify-email')
+  cancelPrivateRequests()
+  expect(privateSignal?.aborted).toBe(true)
+  expect(publicSignal?.aborted ?? false).toBe(false)
 })
