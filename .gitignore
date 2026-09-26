@@ -9,3 +9,6 @@ dist
 server/dist
 server/src/generated/prisma
 server/uploads/
+
+test-results/
+playwright-report/
