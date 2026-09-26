@@ -1,4 +1,5 @@
 import { resolve } from 'node:path';
+import { isIP } from 'node:net';
 import { config as loadDotEnv } from 'dotenv';
 import { z } from 'zod';
 import type { RatePolicies } from './http/security.middleware.js';
@@ -66,7 +67,7 @@ export function validateConfig(config: AppConfig): AppConfig {
   if (config.mode === 'production' &&
     (!config.origin.startsWith('https://') || config.demoEnabled ||
      config.sessionSecret.length < 32 || config.emailPayloadKey.length < 32 ||
-     !config.smtp.host || !config.smtp.from || !config.storage.bucket)) {
+     !config.smtp.host || !config.smtp.from || !config.storage.bucket || !isIP(config.trustedProxyAddress ?? ''))) {
     throw new Error('Invalid production configuration');
   }
   return config;

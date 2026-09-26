@@ -69,6 +69,13 @@ export class ContentService {
     const input = parseBody(contentSaveSchema, raw);
     validateLinks(input.source);
     return withTransaction(this.db, async tx => { await this.admin(tx, actor);
+      if (['shipping', 'privacy', 'terms', 'returns'].includes(slug)) {
+        await tx.$queryRaw`SELECT id FROM store_settings ORDER BY id LIMIT 1 FOR UPDATE`;
+        if (input.status !== 'PUBLISHED') {
+          const settings = await tx.storeSettings.findFirst({ select: { salesEnabled: true } });
+          if (settings?.salesEnabled) throw new UnprocessableEntityException({ code: 'POLICY_REQUIRED_FOR_SALES' });
+        }
+      }
       await tx.$queryRaw`SELECT id FROM content_pages WHERE slug = ${slug} FOR UPDATE`;
       const current = await tx.contentPage.findUnique({ where: { slug } });
       if ((!current && input.version !== 1) || (current && current.version !== input.version))

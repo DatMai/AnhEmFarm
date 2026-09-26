@@ -2,6 +2,12 @@
 
 Updated: 2026-09-26.
 
+## Latest status for the next agent
+
+Tasks 1–17 have been implemented and committed in the isolated worktree. A single read-only GPT-6-sol whole-branch review found six Important deployment/security/UX issues. The inline fix pass addressed all six and one Minor issue. Fresh verification passed 149/149 PostgreSQL backend tests, 15/15 frontend tests, and 16/16 browser tests on the final rerun. Backup/media scripts passed a local mock retrieval drill; real age/S3 credentials and production launch inputs are unavailable. The review and exact limits are recorded in `docs/superpowers/reviews/2026-09-25-commerce-verification.md`. The next immediate action is to commit the fix pass and fast-forward it into the owner's clean main checkout; avoid repeating implementation. Once integrated, run a fresh build and open the current checkout preview. Live sales remain gated by real product, policy, business, shipping, SMTP, storage, domain and backup setup.
+
+Current commands: `npm ci`, `npm --prefix server ci`, `npm run verify`, `npm run test:e2e`, `npm run dev`, `npm run dev:api`, and `npm --prefix server run db:migrate`. Integration tests require a PostgreSQL database ending `_test` configured in ignored `.env.dev`.
+
 ## Current implementation status
 
 Commerce implementation is in the isolated worktree `/Users/daemonthetarnished/.codex/worktrees/commerce-implementation/AnhEmFarm`; the owner's main checkout is still at the older storefront until branch integration. Tasks 1–16 are committed; Task 17 deployment and verification work is in progress. The owner requested inline execution with GPT-6-sol or below after Task 14, followed by one whole-branch review. Do not redo completed tasks.

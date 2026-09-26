@@ -52,6 +52,9 @@ services:
         condition: service_healthy
   proxy:
     image: caddy:2.10-alpine
+    networks:
+      default:
+        ipv4_address: 172.30.77.10
     environment:
       SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN}
     ports:
@@ -67,3 +70,8 @@ volumes:
   postgres_data:
   caddy_data:
   caddy_config:
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.30.77.0/24

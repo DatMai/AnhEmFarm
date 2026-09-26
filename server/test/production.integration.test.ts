@@ -10,7 +10,7 @@ const valid: AppConfig = {
   sessionSecret: 's'.repeat(32), emailPayloadKey: 'e'.repeat(32),
   smtp: { host: 'smtp.example.test', port: 587, from: 'farm@example.test' },
   storage: { bucket: 'farm-media', endpoint: 'https://objects.example.test' },
-  salesEnabled: false, demoEnabled: false,
+  salesEnabled: false, demoEnabled: false, trustedProxyAddress: '172.30.77.10',
 };
 
 describe('production configuration gate', () => {
@@ -23,6 +23,7 @@ describe('production configuration gate', () => {
     expect(() => validateConfig({ ...valid, origin: 'http://farm.example.test' })).toThrow();
     expect(() => validateConfig({ ...valid, smtp: { ...valid.smtp, host: '' } })).toThrow();
     expect(() => validateConfig({ ...valid, storage: { bucket: '', endpoint: '' } })).toThrow();
+    expect(() => validateConfig({ ...valid, trustedProxyAddress: undefined })).toThrow();
   });
   it('keeps products and quotes unavailable when the production environment switch is off', async () => {
     const h = await startHarness(valid);

@@ -8,6 +8,11 @@ export interface RateLimitResult { allowed: boolean; retryAfter: number }
 export class RateLimitService {
   constructor(private readonly prisma: PrismaService, @Inject(APP_CONFIG) private readonly config: AppConfig) {}
 
+  async pruneExpired(): Promise<number> {
+    const result = await this.prisma.rateBucket.deleteMany({ where: { windowEndsAt: { lt: new Date() } } });
+    return result.count;
+  }
+
   async consume(key: string, limit: number, windowMs: number): Promise<RateLimitResult> {
     if (!key || !Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(windowMs) || windowMs < 1000) {
       throw new Error('Invalid rate limit policy');

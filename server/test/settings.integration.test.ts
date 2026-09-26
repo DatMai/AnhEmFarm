@@ -41,6 +41,7 @@ describe('seller settings and approved content', () => {
 
   it('validates zone fees and keeps draft or unsafe content private', async () => {
     const admin = await login(s.admin);
+    await h.db.storeSettings.updateMany({ data: { salesEnabled: false } });
     const negative = await admin.request('POST', '/api/v1/admin/shipping-zones', {
       code: 'NEGATIVE-TEST', displayName: 'Negative test zone', feeVnd: -1, enabled: true });
     expect(negative.status).toBe(422);
@@ -61,5 +62,20 @@ describe('seller settings and approved content', () => {
     expect(publicPage.status).toBe(200);
     expect(JSON.stringify(publicPage.body)).not.toContain('<script>');
     expect(JSON.stringify(publicPage.body)).not.toContain('javascript:');
+  });
+
+  it('keeps required policies published while sales are enabled', async () => {
+    const admin = await login(s.admin);
+    const current = await admin.request('GET', '/api/v1/admin/content/shipping');
+    const page = current.status === 200 ? current.body : (await admin.request('GET', '/api/v1/admin/content')).body.items.find((item: { slug: string }) => item.slug === 'shipping');
+    const published = await admin.request('PUT', '/api/v1/admin/content/shipping', {
+      title: 'Shipping', source: 'Approved fixture shipping policy.', status: 'PUBLISHED', version: page?.version ?? 1 });
+    expect(published.status).toBe(200);
+    await h.db.storeSettings.updateMany({ data: { salesEnabled: true } });
+    const draft = await admin.request('PUT', '/api/v1/admin/content/shipping', {
+      title: 'Shipping', source: 'Pending revision.', status: 'DRAFT', version: published.body.version });
+    expect(draft.status).toBe(422);
+    expect(draft.body.code).toBe('POLICY_REQUIRED_FOR_SALES');
+    expect((await h.request('GET', '/api/v1/content/shipping')).status).toBe(200);
   });
 });

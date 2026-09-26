@@ -50,13 +50,14 @@ export class SettingsService {
       const existing = await tx.storeSettings.findFirst();
       if (!existing && input.version !== 1 || existing && existing.version !== input.version) conflict();
       if (input.salesEnabled) {
+        await tx.$queryRaw`SELECT id FROM content_pages WHERE slug IN ('shipping', 'privacy', 'terms', 'returns') ORDER BY slug FOR UPDATE`;
         const [zones, products, pages] = await Promise.all([
           tx.shippingZone.count({ where: { enabled: true, feeVnd: { gte: 0n } } }),
           tx.variant.count({ where: { saleEnabled: true, stock: { gt: 0 }, priceVnd: { gt: 0n },
             product: { status: 'PUBLISHED', confirmed: true, restricted18: false } } }),
           tx.contentPage.count({ where: { slug: { in: ['shipping', 'privacy', 'terms', 'returns'] }, status: 'PUBLISHED', approvedAt: { not: null } } }),
         ]);
-        if (this.config.mode !== 'production' || !this.config.salesEnabled || !input.confirmLaunch || !input.businessName ||
+        if (this.config.mode !== 'production' || !this.config.salesEnabled || (!existing?.salesEnabled && !input.confirmLaunch) || !input.businessName ||
           !input.supportEmail || !input.supportPhone || !zones || !products || pages !== 4)
           throw new UnprocessableEntityException({ code: 'LAUNCH_REQUIREMENTS_MISSING' });
       }

@@ -2,6 +2,7 @@ import { afterEach, expect, test, vi } from 'vitest'
 import { cleanup, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useState } from 'react'
 import { SessionProvider, useSession } from './session'
 
 function Controls() {
@@ -27,6 +28,28 @@ test('logout removes cached private account queries', async () => {
   await screen.findByText('Guest')
   expect(sessionStorage.getItem('quote:test')).toBeNull()
   await waitFor(() => expect(client.getQueryCache().findAll({ queryKey: ['private'] })).toHaveLength(0))
+})
+test('failed logout hides account and private queries while reporting a retry', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const path = String(input)
+    if (path.endsWith('/auth/me')) return new Response(JSON.stringify({ user: { id: 'user-1', name: 'Ada', email: 'ada@example.test', role: 'ADMIN', verified: true } }))
+    if (path.endsWith('/auth/csrf')) return new Response(JSON.stringify({ token: 'csrf' }))
+    if (path.endsWith('/auth/logout') && init?.method === 'POST') return new Response(JSON.stringify({ code: 'UNAVAILABLE' }), { status: 503 })
+    throw new Error(path)
+  }))
+  function RetryControls() {
+    const { user, logout } = useSession()
+    const [error, setError] = useState('')
+    return <><span>{user?.name ?? 'Guest'}</span><span>{error}</span><button onClick={() => void logout().catch(() => setError('Please retry sign-out.'))}>Log out</button></>
+  }
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  render(<QueryClientProvider client={client}><SessionProvider><RetryControls /></SessionProvider></QueryClientProvider>)
+  await screen.findByText('Ada')
+  client.setQueryData(['private', 'user-1', 'orders'], [{ id: 'order-1' }])
+  await userEvent.click(screen.getByRole('button', { name: 'Log out' }))
+  await screen.findByText('Please retry sign-out.')
+  expect(screen.getByText('Guest')).toBeTruthy()
+  expect(client.getQueryCache().findAll({ queryKey: ['private'] })).toHaveLength(0)
 })
 test('failed session refresh removes stale identity and private queries', async () => {
   let fail = false

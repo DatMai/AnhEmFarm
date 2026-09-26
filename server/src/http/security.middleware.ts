@@ -40,12 +40,12 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
       const rules: Array<[string, string, keyof RatePolicies]> = [];
       if (path === '/auth/login') {
         const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase().slice(0, 254) : '';
-        rules.push(['loginPair', `${ip}:${email}`, 'loginPair'], ['loginIp', ip, 'loginIp']);
+        rules.push(['loginIp', ip, 'loginIp'], ['loginPair', `${ip}:${email}`, 'loginPair']);
       } else if (path === '/auth/register') {
         rules.push(['registrationIp', ip, 'registrationIp']);
       } else if (['/auth/forgot-password', '/auth/resend-verification'].includes(path)) {
         const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase().slice(0, 254) : '';
-        rules.push(['emailAccount', email, 'emailAccount'], ['emailIp', ip, 'emailIp']);
+        rules.push(['emailIp', ip, 'emailIp'], ['emailAccount', email, 'emailAccount']);
       }
       for (const [scope, identifier, policyName] of rules) {
         const policy = policies[policyName];

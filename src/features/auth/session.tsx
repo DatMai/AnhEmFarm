@@ -147,14 +147,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   )
   const logout = useCallback(async () => {
     ++generation.current
+    let revoked = false
     try {
       await api<void>('/auth/logout', { method: 'POST' })
+      revoked = true
+    } finally {
       await invalidate()
-      void refreshCsrf().catch(() => {
+      if (revoked) void refreshCsrf().catch(() => {
         /* Sign-out has already completed on the server. */
       })
-    } finally {
-      setLoading(false)
     }
   }, [invalidate])
   const reload = useCallback(async () => {

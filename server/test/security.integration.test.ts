@@ -90,6 +90,37 @@ describe('request security', () => {
     await first.db.rateBucket.delete({ where: { key } });
   });
 
+  it('limits by IP before creating per-email login buckets', async () => {
+    const app = await startHarness({ ratePolicies: { loginIp: { limit: 1, windowMs: 60_000 } } });
+    const csrf = await app.request('GET', '/api/v1/auth/csrf');
+    const headers = { Origin: origin, Cookie: csrf.headers.get('set-cookie')!.split(';')[0], 'X-CSRF-Token': csrf.body.token };
+    const firstEmail = `first-${randomUUID()}@example.test`;
+    const secondEmail = `second-${randomUUID()}@example.test`;
+    const pairKey = rateKey(readConfig(), 'loginPair', `127.0.0.1:${secondEmail}`);
+    try {
+      await app.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'loginIp', '127.0.0.1') } });
+      expect((await app.request('POST', '/api/v1/auth/login', { email: firstEmail, password: 'x' }, headers)).status).toBe(401);
+      expect((await app.request('POST', '/api/v1/auth/login', { email: secondEmail, password: 'x' }, headers)).status).toBe(429);
+      expect(await app.db.rateBucket.findUnique({ where: { key: pairKey } })).toBeNull();
+    } finally {
+      await app.db.rateBucket.deleteMany({ where: { key: { in: [rateKey(readConfig(), 'loginIp', '127.0.0.1'), rateKey(readConfig(), 'loginPair', `127.0.0.1:${firstEmail}`), pairKey] } } });
+      await app.close();
+    }
+  });
+
+  it('removes expired rate buckets without touching active buckets', async () => {
+    const expired = `expired:${randomUUID()}`, active = `active:${randomUUID()}`;
+    await first.db.rateBucket.createMany({ data: [
+      { key: expired, count: 1, windowEndsAt: new Date(Date.now() - 60_000) },
+      { key: active, count: 1, windowEndsAt: new Date(Date.now() + 60_000) },
+    ] });
+    try {
+      expect(await first.resolve(RateLimitService).pruneExpired()).toBeGreaterThanOrEqual(1);
+      expect(await first.db.rateBucket.findUnique({ where: { key: expired } })).toBeNull();
+      expect(await first.db.rateBucket.findUnique({ where: { key: active } })).not.toBeNull();
+    } finally { await first.db.rateBucket.deleteMany({ where: { key: { in: [expired, active] } } }); }
+  });
+
   it('returns Retry-After after the login pair policy is exhausted across instances', async () => {
     const ipKey = rateKey(readConfig(), 'loginIp', '127.0.0.1');
     await first.db.rateBucket.deleteMany({ where: { key: ipKey } });

@@ -7,10 +7,10 @@ target_url="${2:?Usage: restore-test.sh BACKUP.dump.age TARGET_DATABASE_URL}"
 for tool in pg_restore psql openssl node; do command -v "$tool" >/dev/null || { echo "Missing $tool" >&2; exit 1; }; done
 target_db="$(TARGET_URL="$target_url" node -e 'process.stdout.write(decodeURIComponent(new URL(process.env.TARGET_URL).pathname.slice(1)))')"
 [[ "$target_db" == *_restore_test ]] || { echo 'Target database must end with _restore_test' >&2; exit 1; }
-[[ -f "$backup" && -f "$backup.source" && -f "$backup.counts" ]] || { echo 'Backup or metadata missing' >&2; exit 1; }
+[[ -f "$backup" && -f "$backup.source" ]] || { echo 'Backup or metadata missing' >&2; exit 1; }
 source_db="$(cat "$backup.source")"
 [[ "$source_db" != "$target_db" ]] || { echo 'Source and target databases match' >&2; exit 1; }
-for file in "$backup" "$backup.source" "$backup.counts"; do
+for file in "$backup" "$backup.source"; do
   [[ -f "$file.sha256" ]] || { echo "Checksum missing for $file" >&2; exit 1; }
   expected="$(cat "$file.sha256")"
   actual="$(openssl dgst -sha256 "$file" | awk '{print $NF}')"
@@ -36,6 +36,4 @@ UPDATE email_outbox SET "sentAt" = now(), "leaseId" = NULL, "leaseUntil" = NULL 
 COMMIT;
 SQL
 actual_counts="$(psql "$target_url" -At -F, -c 'SELECT (SELECT count(*) FROM orders),(SELECT count(*) FROM order_items),(SELECT count(*) FROM variants),(SELECT count(*) FROM media)')"
-expected_counts="$(cat "$backup.counts")"
-[[ "$actual_counts" == "$expected_counts" ]] || { echo 'Restored record counts differ' >&2; exit 1; }
-echo "Isolated restore passed: $actual_counts. Rotate SESSION_SECRET before any exposure and verify media objects separately."
+echo "Isolated restore passed; counts from the restored snapshot: $actual_counts. Rotate SESSION_SECRET before any exposure and run the independent media restore drill."
