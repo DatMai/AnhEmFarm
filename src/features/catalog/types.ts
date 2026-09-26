@@ -6,3 +6,8 @@ export type ProductDetail = ProductSummary & { description: string; confirmed: b
 export function imageUrl(media?: Media): string | undefined {
   return media && /^products\/[0-9a-f-]+\.webp$/.test(media.objectKey) ? `/api/v1/media/${media.objectKey}` : undefined
 }
+
+export function variantAvailable(product: ProductDetail, variant: ProductDetail['variants'][number]): boolean {
+  return product.purchasable && product.confirmed && variant.saleEnabled && variant.inStock &&
+    variant.priceVnd !== null && variant.priceVnd > 0 && variant.packDetails.trim().length > 0
+}

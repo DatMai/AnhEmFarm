@@ -24,10 +24,24 @@ export async function refreshCsrf(): Promise<string> {
     }).finally(() => { csrfRequest = null })
   return csrfRequest
 }
+const fieldMessages: Record<string, Record<string, string>> = {
+  email: { invalid_format: 'Please enter a valid email address.', too_small: 'Please enter your email address.' },
+  name: { too_small: 'Please enter your name.' },
+  password: { too_small: 'Please use at least 12 characters.', too_big: 'Password is too long.' },
+}
 function safeFields(value: unknown): Record<string, string[]> | undefined {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined
-  return Object.fromEntries(Object.entries(value).filter(([key, entry]) => /^[a-zA-Z][a-zA-Z0-9]*$/.test(key) && Array.isArray(entry))
-    .map(([key]) => [key, [messages.VALIDATION_FAILED]]))
+  if (!Array.isArray(value)) return undefined
+  const fields: Record<string, string[]> = {}
+  for (const issue of value) {
+    if (!issue || typeof issue !== 'object' || Array.isArray(issue)) continue
+    const field = 'field' in issue ? issue.field : null
+    const code = 'code' in issue ? issue.code : null
+    if (typeof field !== 'string' || !Object.hasOwn(fieldMessages, field)) continue
+    if (typeof code !== 'string') continue
+    fields[field] ??= []
+    fields[field].push(Object.hasOwn(fieldMessages[field], code) ? fieldMessages[field][code] : 'Please check this field.')
+  }
+  return Object.keys(fields).length ? fields : undefined
 }
 export async function api<T>(path: string, options: Options = {}): Promise<T> {
   if (!path.startsWith('/') || path.startsWith('//')) throw new Error('API path must be local')
