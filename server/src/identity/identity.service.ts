@@ -4,6 +4,8 @@ import { Prisma, type User } from '../generated/prisma/client.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { CsrfGuard } from './csrf.guard.js';
 import { type Actor, SessionService } from './session.service.js';
+import { TokenService } from './token.service.js';
+import { withTransaction } from '../db/transaction.js';
 
 export interface PublicUser { id: string; email: string; name: string; role: 'CUSTOMER' | 'ADMIN'; verified: boolean }
 export interface Credentials { email: string; password: string }
@@ -14,13 +16,17 @@ export const publicUser = (user: User): PublicUser => ({ id: user.id, email: use
 
 @Injectable()
 export class IdentityService {
-  constructor(private readonly db: PrismaService, private readonly sessions: SessionService, private readonly csrf: CsrfGuard) {}
+  constructor(private readonly db: PrismaService, private readonly sessions: SessionService, private readonly csrf: CsrfGuard,
+    private readonly tokens: TokenService) {}
 
   async register(input: Registration): Promise<void> {
     const email = normalizedEmail(input.email);
     const passwordHash = await hash(input.password, hashOptions);
     try {
-      await this.db.user.create({ data: { email, name: input.name.trim(), passwordHash, role: 'CUSTOMER' } });
+      await withTransaction(this.db, async tx => {
+        const user = await tx.user.create({ data: { email, name: input.name.trim(), passwordHash, role: 'CUSTOMER' } });
+        await this.tokens.issueInTransaction(tx, user.id, 'VERIFY');
+      });
     } catch (error) {
       if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
       throw error;

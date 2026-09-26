@@ -1,0 +1,124 @@
+import { randomUUID } from 'node:crypto';
+import { Inject, Injectable } from '@nestjs/common';
+import nodemailer from 'nodemailer';
+import { APP_CONFIG, type AppConfig } from '../config.js';
+import { PrismaService } from '../db/prisma.service.js';
+import { sha256 } from '../identity/session.service.js';
+import { renderEmail, type EmailMessage, type EmailTemplate } from './email.templates.js';
+import { OutboxService } from './outbox.service.js';
+
+export const EMAIL_TRANSPORT = 'EMAIL_TRANSPORT';
+export interface EmailTransport { send(message: EmailMessage): Promise<void> }
+
+export class RecordingEmailTransport implements EmailTransport {
+  readonly messages: EmailMessage[] = [];
+  failNext = false;
+  async send(message: EmailMessage): Promise<void> {
+    if (this.failNext) { this.failNext = false; throw new Error('Simulated SMTP error'); }
+    this.messages.push(message);
+  }
+}
+
+export class SmtpEmailTransport implements EmailTransport {
+  private readonly client: ReturnType<typeof nodemailer.createTransport>;
+  private readonly from: string;
+  constructor(config: AppConfig) {
+    this.client = nodemailer.createTransport({ host: config.smtp.host, port: config.smtp.port, secure: config.smtp.port === 465,
+      requireTLS: config.mode === 'production' && config.smtp.port !== 465,
+      ...(config.smtp.user ? { auth: { user: config.smtp.user, pass: config.smtp.password ?? '' } } : {}),
+    });
+    this.from = config.smtp.from ?? '';
+  }
+  async send(message: EmailMessage): Promise<void> {
+    await this.client.sendMail({ ...message, from: this.from });
+  }
+}
+
+interface ClaimedJob { id: string; leaseId: string; recipient: string; template: string; payload: string | null }
+const BACKOFF_MINUTES = [1, 5, 15, 60, 180];
+
+@Injectable()
+export class EmailWorker {
+  constructor(private readonly db: PrismaService, private readonly outbox: OutboxService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig, @Inject(EMAIL_TRANSPORT) private readonly transport: EmailTransport) {}
+
+  async claim(now = new Date()): Promise<ClaimedJob[]> {
+    return this.db.$transaction(async tx => {
+      const ids = await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT id FROM email_outbox
+        WHERE "sentAt" IS NULL AND "exhaustedAt" IS NULL AND "availableAt" <= ${now}
+          AND ("leaseUntil" IS NULL OR "leaseUntil" < ${now})
+        ORDER BY "availableAt", id FOR UPDATE SKIP LOCKED LIMIT 20
+      `;
+      const leaseUntil = new Date(now.getTime() + 120_000);
+      const jobs: ClaimedJob[] = [];
+      for (const { id } of ids) {
+        const leaseId = randomUUID();
+        const job = await tx.emailOutbox.update({ where: { id }, data: { leaseId, leaseUntil } });
+        jobs.push({ id, leaseId, recipient: job.recipient, template: job.template, payload: job.payload });
+      }
+      return jobs;
+    });
+  }
+
+  async ack(id: string, leaseId: string): Promise<boolean> {
+    const result = await this.db.emailOutbox.updateMany({ where: { id, leaseId, sentAt: null, exhaustedAt: null },
+      data: { sentAt: new Date(), payload: null, leaseId: null, leaseUntil: null, lastErrorCode: null } });
+    return result.count === 1;
+  }
+
+  private async discard(job: ClaimedJob, code: string): Promise<void> {
+    await this.db.emailOutbox.updateMany({ where: { id: job.id, leaseId: job.leaseId, sentAt: null, exhaustedAt: null },
+      data: { exhaustedAt: new Date(), payload: null, leaseId: null, leaseUntil: null, lastErrorCode: code } });
+  }
+
+  private async fail(job: ClaimedJob): Promise<void> {
+    const row = await this.db.emailOutbox.findUnique({ where: { id: job.id }, select: { attempts: true, leaseId: true } });
+    if (!row || row.leaseId !== job.leaseId) return;
+    const attempts = row.attempts + 1;
+    const exhausted = attempts > BACKOFF_MINUTES.length;
+    await this.db.emailOutbox.updateMany({ where: { id: job.id, leaseId: job.leaseId, exhaustedAt: null }, data: {
+      attempts, lastErrorCode: 'DELIVERY_FAILED', leaseId: null, leaseUntil: null,
+      availableAt: new Date(Date.now() + (BACKOFF_MINUTES[attempts - 1] ?? 0) * 60_000),
+      ...(exhausted ? { exhaustedAt: new Date(), payload: null } : {}),
+    } });
+  }
+
+  private async deliver(job: ClaimedJob): Promise<void> {
+    if (!job.payload) { await this.discard(job, 'PAYLOAD_UNAVAILABLE'); return; }
+    if (!['VERIFY', 'RESET'].includes(job.template)) { await this.fail(job); return; }
+    let payload: { token: string };
+    let token: Awaited<ReturnType<typeof this.db.accountToken.findUnique>>;
+    try {
+      payload = this.outbox.decrypt(job.payload);
+      if (typeof payload.token !== 'string') throw new Error('Invalid email payload');
+      token = await this.db.accountToken.findUnique({ where: { digest: sha256(payload.token) } });
+    } catch { await this.fail(job); return; }
+    if (!token || token.usedAt || token.expiresAt <= new Date()) { await this.discard(job, 'TOKEN_UNUSABLE'); return; }
+    const timer = setInterval(() => {
+      void this.db.emailOutbox.updateMany({ where: { id: job.id, leaseId: job.leaseId, sentAt: null, exhaustedAt: null },
+        data: { leaseUntil: new Date(Date.now() + 120_000) } }).catch(() => undefined);
+    }, 30_000);
+    try {
+      await this.transport.send(renderEmail(this.config, job.recipient, job.template as EmailTemplate, payload));
+      await this.ack(job.id, job.leaseId);
+    } catch { await this.fail(job); }
+    finally { clearInterval(timer); payload.token = ''; }
+  }
+
+  async tick(now = new Date()): Promise<number> {
+    await this.db.$executeRaw`
+      UPDATE email_outbox AS o SET payload = NULL, "exhaustedAt" = ${now}, "lastErrorCode" = 'TOKEN_UNUSABLE'
+      WHERE o.payload IS NOT NULL AND o."dedupeKey" LIKE 'account-token:%'
+        AND o."sentAt" IS NULL AND o."exhaustedAt" IS NULL
+        AND EXISTS (
+          SELECT 1 FROM account_tokens AS t
+          WHERE o."dedupeKey" = 'account-token:' || t.id::text
+            AND (t."expiresAt" <= ${now} OR t."usedAt" IS NOT NULL)
+        )
+    `;
+    const jobs = await this.claim(now);
+    for (const job of jobs) await this.deliver(job);
+    return jobs.length;
+  }
+}

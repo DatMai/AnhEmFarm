@@ -13,6 +13,9 @@ const environment = z.object({
   EMAIL_PAYLOAD_KEY: z.string().default(''),
   SMTP_HOST: z.string().default(''),
   SMTP_PORT: z.coerce.number().int().min(1).max(65535).default(1025),
+  SMTP_FROM: z.string().default(''),
+  SMTP_USER: z.string().default(''),
+  SMTP_PASSWORD: z.string().default(''),
   STORAGE_BUCKET: z.string().default(''),
   STORAGE_ENDPOINT: z.string().default(''),
   SALES_ENABLED: z.enum(['true', 'false']).default('false'),
@@ -31,7 +34,7 @@ export interface AppConfig {
   databaseUrl: string;
   sessionSecret: string;
   emailPayloadKey: string;
-  smtp: { host: string; port: number };
+  smtp: { host: string; port: number; from?: string; user?: string; password?: string };
   storage: { bucket: string; endpoint: string };
   salesEnabled: boolean;
   demoEnabled: boolean;
@@ -45,7 +48,8 @@ const applicationConfig = z.object({
   databaseUrl: z.url().refine(value => value.startsWith('postgres://') || value.startsWith('postgresql://')),
   sessionSecret: z.string(),
   emailPayloadKey: z.string(),
-  smtp: z.object({ host: z.string(), port: z.number().int().min(1).max(65535) }),
+  smtp: z.object({ host: z.string(), port: z.number().int().min(1).max(65535), from: z.string().optional(),
+    user: z.string().optional(), password: z.string().optional() }),
   storage: z.object({ bucket: z.string(), endpoint: z.string() }),
   salesEnabled: z.boolean(),
   demoEnabled: z.boolean(),
@@ -57,10 +61,11 @@ export function validateConfig(config: AppConfig): AppConfig {
   if (!applicationConfig.safeParse(config).success) {
     throw new Error('Invalid configuration');
   }
+  if (Boolean(config.smtp.user) !== Boolean(config.smtp.password)) throw new Error('Invalid SMTP credentials');
   if (config.mode === 'production' &&
     (!config.origin.startsWith('https://') || config.demoEnabled ||
-     !config.sessionSecret || !config.emailPayloadKey ||
-     !config.smtp.host || !config.storage.bucket)) {
+     !config.sessionSecret || config.emailPayloadKey.length < 32 ||
+     !config.smtp.host || !config.smtp.from || !config.storage.bucket)) {
     throw new Error('Invalid production configuration');
   }
   return config;
@@ -75,7 +80,8 @@ export function readConfig(): AppConfig {
     databaseUrl: env.DATABASE_URL,
     sessionSecret: env.SESSION_SECRET,
     emailPayloadKey: env.EMAIL_PAYLOAD_KEY,
-    smtp: { host: env.SMTP_HOST, port: env.SMTP_PORT },
+    smtp: { host: env.SMTP_HOST, port: env.SMTP_PORT, from: env.SMTP_FROM,
+      user: env.SMTP_USER, password: env.SMTP_PASSWORD },
     storage: { bucket: env.STORAGE_BUCKET, endpoint: env.STORAGE_ENDPOINT },
     salesEnabled: env.SALES_ENABLED === 'true',
     demoEnabled: env.DEMO_ENABLED === 'true',
