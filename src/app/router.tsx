@@ -26,6 +26,8 @@ import { AddressesPage } from '../features/account/AddressesPage'
 import { OrdersPage } from '../features/account/OrdersPage'
 import { OrderDetailPage } from '../features/account/OrderDetailPage'
 import { CustomerBoundary } from '../features/account/shared'
+import { ContentPage } from '../features/content/ContentPage'
+import { NotFoundPage } from '../features/content/NotFoundPage'
 export const router = createBrowserRouter([
   {
     element: <Layout />,
@@ -33,6 +35,9 @@ export const router = createBrowserRouter([
       { path: '/', element: <HomePage /> },
       { path: '/products', element: <ProductListPage /> },
       { path: '/products/:slug', element: <ProductPage /> },
+      { path: '/about', element: <ContentPage slug="about" /> },
+      { path: '/contact', element: <ContentPage slug="contact" /> },
+      { path: '/policies/:slug', element: <ContentPage /> },
       { path: '/login', element: <AuthPage mode="login" /> },
       { path: '/register', element: <AuthPage mode="register" /> },
       { path: '/forgot-password', element: <AuthPage mode="forgot" /> },
@@ -68,15 +73,7 @@ export const router = createBrowserRouter([
           { path: 'email-jobs', element: <EmailJobsPage /> }
         ]
       },
-      {
-        path: '*',
-        element: (
-          <section className="container section">
-            <h1>Page not found</h1>
-            <a href="/products">Browse products</a>
-          </section>
-        )
-      }
+      { path: '*', element: <NotFoundPage /> }
     ]
   }
 ])

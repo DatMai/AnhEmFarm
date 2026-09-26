@@ -8,6 +8,7 @@ import { SettingsController, StoreController } from './admin/settings.controller
 import { SettingsService } from './admin/settings.service.js';
 import { AdminContentController, PublicContentController } from './content/content.controller.js';
 import { ContentService } from './content/content.service.js';
+import { WebController } from './web/web.controller.js';
 import { OrdersController } from './orders/orders.controller.js';
 import { AdminOrdersController } from './orders/admin-orders.controller.js';
 import { OrdersService } from './orders/orders.service.js';
@@ -34,7 +35,7 @@ export class AppModule {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
       controllers: [AccountController, CustomersController, ReportsController, SettingsController, StoreController, AdminContentController, PublicContentController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
-      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
+      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, WebController, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }

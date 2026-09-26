@@ -25,3 +25,13 @@
 .commerce [role=alert] { color: #a21b26; }
 .commerce input[type=checkbox] { margin-right: .5rem; }
 .commerce a, .commerce button, .variant-list button { overflow-wrap: anywhere; }
+.content-page { max-width: 860px; min-height: 45vh; }
+.content-page h1 { margin: .5rem 0 2rem; }
+.content-body { line-height: 1.75; overflow-wrap: anywhere; }
+.content-body p { margin: 0 0 1.25rem; }
+.content-body a { color: #9d2338; text-decoration: underline; text-underline-offset: .2em; }
+.section-heading p, .page-state p { color: #61564d; }
+:focus-visible { outline: 3px solid #b72843; outline-offset: 3px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

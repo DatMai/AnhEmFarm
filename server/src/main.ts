@@ -16,6 +16,10 @@ import { securityMiddleware } from './http/security.middleware.js';
 import { CsrfGuard } from './identity/csrf.guard.js';
 import { RateLimitService } from './identity/rate-limit.service.js';
 import { SESSION_COOKIE, SessionService, clearSessionCookie } from './identity/session.service.js';
+import { webRoot } from './web/render-page.js';
+import { resolve as resolvePath } from 'node:path';
+import { static as serveStatic } from 'express';
+import { WebController, webRouter } from './web/web.controller.js';
 
 export async function createApp(config: AppConfig): Promise<INestApplication> {
   validateConfig(config);
@@ -27,6 +31,9 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
     ],
   });
   app.use(helmet());
+  app.use('/assets', serveStatic(resolvePath(webRoot(), 'dist/assets'), { immutable: true, maxAge: '1y' }));
+  app.use(serveStatic(resolvePath(webRoot(), 'dist'), { index: false, maxAge: '1h' }));
+  app.use(webRouter(app.get(WebController)));
   app.useBodyParser('json', { limit: '1mb' });
   app.use((request: Request, response: Response, next: NextFunction) => {
     const requestId = randomUUID();
