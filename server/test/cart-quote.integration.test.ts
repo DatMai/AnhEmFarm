@@ -47,7 +47,7 @@ describe('cart and quote persistence', () => {
     await expect(quote.create(actor(), input)).rejects.toMatchObject({ status: 403 });
     await h.db.user.update({ where: { id: s.customer.id }, data: { verifiedAt: new Date() } });
   });
-  it('requires wine age confirmation and rejects expired quote data at the persistence boundary', async () => {
+  it('requires wine age confirmation and persists quote expiration', async () => {
     const quote = h.resolve(QuoteService);
     const input = { address: { recipient: s.address.recipient, phone: s.address.phone, zoneId: s.zone.id, line1: s.address.line1 }, ageConfirmed: false };
     const settings = await h.db.storeSettings.findFirstOrThrow();

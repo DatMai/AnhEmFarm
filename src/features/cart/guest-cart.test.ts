@@ -24,4 +24,14 @@ describe('guest cart storage', () => {
     clearMergedGuestCart(prepareGuestMerge()!)
     expect(loadGuestCart().items).toEqual([])
   })
+  it('retains 50 distinct lines and the pending merge key across reload', () => {
+    const items = Array.from({ length: 50 }, () => ({ variantId: crypto.randomUUID(), quantity: 99 }))
+    saveGuestCart(items)
+    const pending = prepareGuestMerge()!
+    expect(localStorage.getItem('anhemfarm.guestCart')!.length).toBeGreaterThan(5000)
+    expect(loadGuestCart().items).toHaveLength(50)
+    expect(prepareGuestMerge()).toEqual(pending)
+    clearMergedGuestCart(pending)
+    expect(loadGuestCart().items).toEqual([])
+  })
 })

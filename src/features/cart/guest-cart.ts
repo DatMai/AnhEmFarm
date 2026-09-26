@@ -2,6 +2,8 @@ export type GuestLine = { variantId: string; quantity: number }
 export type GuestMerge = { key: string; items: GuestLine[] }
 type Stored = { version: 1; items: GuestLine[]; pendingMerge?: GuestMerge }
 const storageKey = 'anhemfarm.guestCart'
+// 50 two-digit quantity lines appear twice while a merge is pending (6,795 serialized characters).
+const maxStoredChars = 6800
 const empty = (): Stored => ({ version: 1, items: [] })
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const validLines = (value: unknown): value is GuestLine[] => Array.isArray(value) && value.length <= 50 &&
@@ -12,7 +14,7 @@ const canonical = (items: GuestLine[]) => [...items].sort((a, b) => a.variantId.
 export function loadGuestCart(): Stored {
   try {
     const raw = localStorage.getItem(storageKey)
-    if (!raw || raw.length > 5000) return empty()
+    if (!raw || raw.length > maxStoredChars) return empty()
     const data: unknown = JSON.parse(raw)
     if (!data || typeof data !== 'object') return empty()
     const record = data as Record<string, unknown>
