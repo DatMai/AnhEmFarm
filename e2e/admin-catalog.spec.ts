@@ -42,7 +42,7 @@ test('admin creates, stocks and publishes a product through the UI', async ({ pa
   await page.getByLabel('Upload image').setInputFiles({ name: 'test.png', mimeType: 'image/png', buffer: Buffer.from('test') })
   await expect(page.getByRole('status').getByText('Image added.')).toBeVisible()
   await page.getByRole('link', { name: 'Adjust stock' }).click()
-  await page.getByRole('button', { name: 'Adjust' }).click()
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click()
   await page.getByLabel('Change in units').fill('3')
   await page.getByLabel('Reason').fill('Initial count')
   await page.getByRole('button', { name: 'Apply adjustment' }).click()
@@ -87,7 +87,7 @@ test('category and inventory paging reaches records beyond the first page', asyn
   await expect(page.getByLabel('Category')).toHaveValue(categories[20].id)
 })
 
-test('uncertain stock response reuses the key only for an identical retry', async ({ page }) => {
+test('uncertain stock response retains the key after reselecting the same row, then needs reload for a changed payload', async ({ page }) => {
   const keys: string[] = []
   await page.route('**/api/v1/**', route => {
     const url = new URL(route.request().url()); const path = url.pathname
@@ -102,11 +102,12 @@ test('uncertain stock response reuses the key only for an identical retry', asyn
     return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } })
   })
   await page.goto('/admin/inventory')
-  await page.getByRole('button', { name: 'Adjust' }).click()
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click()
   await page.getByLabel('Change in units').fill('2')
   await page.getByLabel('Reason').fill('Count correction')
   await page.getByRole('button', { name: 'Apply adjustment' }).click()
   await expect(page.getByText('The outcome is unknown.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Adjust', exact: true }).click()
   await page.getByRole('button', { name: 'Apply adjustment' }).click()
   await expect.poll(() => keys.length).toBe(2)
   expect(keys[1]).toBe(keys[0])
