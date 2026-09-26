@@ -12,7 +12,15 @@ export type Address = {
   line2?: string
   postalCode?: string
 }
-export type SavedAddress = Address & { id: string; version: number }
+export type SavedAddress = Omit<Address, 'line2' | 'postalCode'> & {
+  id: string; version: number; line2: string | null; postalCode: string | null
+}
+export function addressInput(saved: SavedAddress): Address {
+  return {
+    recipient: saved.recipient, phone: saved.phone, zoneId: saved.zoneId,
+    line1: saved.line1, line2: saved.line2 ?? '', postalCode: saved.postalCode ?? ''
+  }
+}
 export type Page<T> = {
   items: T[]
   page: number

@@ -202,6 +202,11 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
       .getByLabel('Address line 1')
       .fill('Test fixture delivery address')
     await page.getByLabel('Delivery zone').selectOption(s.zone.id)
+    await page.route('**/api/v1/account/addresses', async route => {
+      if (route.request().method() !== 'POST') return route.continue()
+      const body = route.request().postDataJSON(); delete body.line2; delete body.postalCode
+      await route.continue({ postData: JSON.stringify(body) })
+    }, { times: 1 })
     await page.getByRole('button', { name: 'Save address' }).click()
     await expect(
       page.getByRole('heading', { name: 'Browser Recipient' })
@@ -237,7 +242,18 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
     )
     await page.getByRole('button', { name: 'Place COD order' }).click()
     await expect(page.getByRole('alert')).toContainText('Connection failed')
+    let failSessionRead = true
+    await page.route('**/api/v1/auth/me', route => failSessionRead
+      ? route.fulfill({ status: 503, json: {} })
+      : route.continue())
     await page.reload()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+    failSessionRead = false
+    await page.getByLabel('Email').fill(email)
+    await page.getByLabel('Password', { exact: true }).fill(password)
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Your account', exact: true })).toBeVisible()
+    await page.goto('/checkout')
     await page.getByRole('button', { name: 'Recover COD order' }).click()
     await expect(
       page.getByRole('heading', { name: 'Order confirmed' })
@@ -258,6 +274,10 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
       .getByRole('button', { name: 'Cancel order', exact: true })
       .click()
     await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
+    await page.goto('/account/addresses')
+    await page.getByRole('button', { name: 'Edit address', exact: true }).click()
+    await page.getByRole('button', { name: 'Save address' }).click()
+    await expect(page.getByRole('heading', { name: 'Add address', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Log out' }).first().click()
     await expect(page.getByRole('button', { name: 'Log out' })).toHaveCount(0)
     await page.goto('/login')
@@ -388,4 +408,25 @@ test('unverified checkout and sale-disabled product cannot submit (mocked)', asy
   await expect(
     page.getByRole('button', { name: 'Add Pack to cart' })
   ).toBeDisabled()
+})
+
+
+test('password change invalidates private state in a second tab (mocked)', async ({ page, context }) => {
+ let signedIn = true
+ await context.route('**/api/v1/**', route => {
+   const path = new URL(route.request().url()).pathname
+   if (path.endsWith('/auth/me')) return route.fulfill({ json: { user: signedIn ? { id: 'first-account', name: 'Private Account', email: 'test@example.test', verified: true } : null } })
+   if (path.endsWith('/auth/csrf')) return route.fulfill({ json: { token: 'csrf' } })
+   if (path.endsWith('/auth/change-password')) { signedIn = false; return route.fulfill({ status: 204 }) }
+   return route.fulfill({ json: {} })
+ })
+ await page.goto('/account'); const other = await context.newPage(); await other.goto('/account')
+ await expect(other.getByRole('heading', { name: 'Your account' })).toBeVisible()
+ await other.evaluate(() => sessionStorage.setItem('quote:old', 'old-key'))
+ await page.getByLabel('Current password').fill('old-password-test')
+ await page.getByLabel('New password').fill('new-password-test')
+ await page.getByRole('button', { name: 'Change password', exact: true }).click()
+ await expect(other.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+ await expect(other.getByRole('link', { name: 'Private Account', exact: true })).toHaveCount(0)
+ expect(await other.evaluate(() => sessionStorage.getItem('quote:old'))).toBeNull()
 })

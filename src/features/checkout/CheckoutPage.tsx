@@ -6,6 +6,7 @@ import { formatVnd } from '../../lib/money'
 import { useSession } from '../auth/session'
 import {
   AddressFields,
+  addressInput,
   blankAddress,
   errorText,
   Pager,
@@ -173,8 +174,7 @@ export function CheckoutPage() {
                         (a) => a.id === e.target.value
                       )
                       if (a) {
-                        const { id: _id, version: _version, ...fields } = a
-                        setAddress(fields)
+                        setAddress(addressInput(a))
                       }
                     }}
                   >

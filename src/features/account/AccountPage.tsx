@@ -4,7 +4,7 @@ import { useSession } from '../auth/session'
 import { FormField } from '../../components/FormField'
 import { AccountNav, errorText } from './shared'
 export function AccountPage() {
-  const { user, reload } = useSession()
+  const { user, reload, invalidate } = useSession()
   const [name, setName] = useState(user!.name),
     [currentPassword, setCurrent] = useState(''),
     [newPassword, setNew] = useState(''),
@@ -24,7 +24,8 @@ export function AccountPage() {
       setMessage(
         password ? 'Password changed. Please sign in again.' : 'Profile saved.'
       )
-      await reload()
+      if (password) await invalidate()
+      else await reload()
     } catch (e) {
       setMessage(errorText(e))
     } finally {

@@ -48,3 +48,25 @@ test('failed session refresh removes stale identity and private queries', async 
   await screen.findByText('Guest')
   expect(client.getQueryCache().findAll({ queryKey: ['private'] })).toHaveLength(0)
 })
+
+for (const replacement of [false, true]) test(`reauthentication after reload ${replacement ? 'clears keys for a confirmed replacement' : 'preserves same-account quote recovery'}`, async () => {
+  sessionStorage.clear()
+  let offline = false
+  const first = { id: 'user-1', name: 'First', verified: true, role: 'CUSTOMER', email: 'first@example.test' }
+  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
+    const path = String(input)
+    if (path.endsWith('/auth/me')) return offline ? new Response('{}', { status: 503 }) : new Response(JSON.stringify({ user: first }))
+    if (path.endsWith('/auth/csrf')) return new Response(JSON.stringify({ token: 'csrf' }))
+    if (path.endsWith('/auth/login')) return new Response(JSON.stringify({ user: replacement ? { ...first, id: 'user-2', name: 'Second' } : first }))
+    if (path.endsWith('/cart')) return new Response(JSON.stringify({ version: 1, items: [] }))
+    throw new Error(path)
+  }))
+  function Reauth() { const { user, login } = useSession(); return <><p>{user?.name ?? 'Guest'}</p><button onClick={() => void login('test@example.test', 'test-password')}>Reauthenticate</button></> }
+  const mount = () => render(<QueryClientProvider client={new QueryClient()}><SessionProvider><Reauth /></SessionProvider></QueryClientProvider>)
+  mount(); await screen.findByText('First')
+  sessionStorage.setItem('quote:pending', 'original-key')
+  cleanup(); offline = true; mount(); await screen.findByText('Guest')
+  await userEvent.click(screen.getByRole('button', { name: 'Reauthenticate' }))
+  await screen.findByText(replacement ? 'Second' : 'First')
+  expect(sessionStorage.getItem('quote:pending')).toBe(replacement ? null : 'original-key')
+})

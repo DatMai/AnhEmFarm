@@ -3,6 +3,7 @@ import { api } from '../../lib/api'
 import {
   AccountNav,
   AddressFields,
+  addressInput,
   blankAddress,
   errorText,
   Pager,
@@ -75,9 +76,8 @@ export function AddressesPage() {
           <button
             disabled={busy}
             onClick={() => {
-              const { id: _id, version: _version, ...fields } = a
               setEditing(a)
-              setAddress(fields)
+              setAddress(addressInput(a))
             }}
           >
             Edit address
