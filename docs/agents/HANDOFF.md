@@ -17,7 +17,7 @@ The owner approved React + Node.js/TypeScript + PostgreSQL, COD first, English-o
 
 ## Fresh verification
 
-The 2026-09-26 PR-preparation rerun on this checkout passed `npm run verify` (client/SSR/API builds, 17 frontend and 153 PostgreSQL backend tests), the final `npm run test:e2e` (23/23 Chromium cases), and root/server dependency audits (zero vulnerabilities at all severity levels). Two preceding full browser runs each had one failure caused by a stale Mailpit text expectation and an address-zone loading race in the test; the corrected focused suite passed 5/5 before the final full run. See `docs/superpowers/reviews/2026-09-26-pr-readiness.md` for the exact scope and limits. The repository currently has no Git remote configured, so a PR is pending the owner's repository URL and authenticated GitHub access.
+The 2026-09-26 PR-preparation rerun on this checkout passed `npm run verify` (client/SSR/API builds, 17 frontend and 153 PostgreSQL backend tests), the final `npm run test:e2e` (23/23 Chromium cases), and root/server dependency audits (zero vulnerabilities at all severity levels). Two preceding full browser runs each had one failure caused by a stale Mailpit text expectation and an address-zone loading race in the test; the corrected focused suite passed 5/5 before the final full run. See `docs/superpowers/reviews/2026-09-26-pr-readiness.md` for the exact scope and limits. GitHub [PR #1](https://github.com/DatMai/AnhEmFarm/pull/1) is open from `codex/commerce-pr` into `main`; CI was in progress when this handoff was updated. The remote `main` branch contains only the original prototype commit `afa0b56` until the owner merges the PR.
 
 Earlier verification history follows.
 

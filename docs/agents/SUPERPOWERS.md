@@ -30,7 +30,7 @@ Read the actual skill and its referenced files before applying that stage; this 
 5. Obtain plan review and execution-method selection before implementation. Use the applicable upstream workspace/progress mechanism and preserve useful handoff information in tracked documentation without secrets.
 6. Execute TDD, review, verification, and branch-finishing stages. Store factual review/verification evidence with the plan or handoff.
 
-Current stage: local PR preparation after implementation and verification. The owner approved the commerce direction and later explicitly authorized continued implementation. Tasks 1–14 used the subagent workflow; the owner then requested inline execution using GPT-6-sol or below for Tasks 15–17 and one whole-branch review. The concrete plan is `docs/superpowers/plans/2026-09-25-commerce.md`; tracked handoff and review documents hold the durable implementation evidence. The ignored `.superpowers/sdd/2026-09-25-commerce/` ledger may be absent in a checkout. Earlier planning-stage statements below are historical.
+Current stage: PR review after local implementation and verification. The owner approved the commerce direction and later explicitly authorized continued implementation. Tasks 1–14 used the subagent workflow; the owner then requested inline execution using GPT-6-sol or below for Tasks 15–17 and one whole-branch review. The concrete plan is `docs/superpowers/plans/2026-09-25-commerce.md`; tracked handoff and review documents hold the durable implementation evidence. The ignored `.superpowers/sdd/2026-09-25-commerce/` ledger may be absent in a checkout. Earlier planning-stage statements below are historical.
 
 ## Prior baseline
 
