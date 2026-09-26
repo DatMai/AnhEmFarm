@@ -87,14 +87,23 @@ export class EmailWorker {
 
   private async deliver(job: ClaimedJob): Promise<void> {
     if (!job.payload) { await this.discard(job, 'PAYLOAD_UNAVAILABLE'); return; }
-    if (!['VERIFY', 'RESET', 'ORDER_CREATED'].includes(job.template)) { await this.fail(job); return; }
+    if (!['VERIFY', 'RESET', 'ORDER_CREATED', 'ORDER_STATUS_CHANGED'].includes(job.template)) { await this.fail(job); return; }
     let payload: EmailPayload;
     try {
       payload = this.outbox.decrypt<EmailPayload>(job.payload);
       if (job.template === 'ORDER_CREATED') {
-        if (!('orderId' in payload)) throw new Error('Invalid order payload');
+        if (!('totalVnd' in payload)) throw new Error('Invalid order payload');
         const order = await this.db.order.findUnique({ where: { id: payload.orderId } });
         if (!order || Number(order.totalVnd) !== payload.totalVnd) throw new Error('Invalid order payload');
+      } else if (job.template === 'ORDER_STATUS_CHANGED') {
+        if (!('status' in payload)) throw new Error('Invalid order status payload');
+        const [order, event] = await Promise.all([
+          this.db.order.findUnique({ where: { id: payload.orderId }, select: { user: { select: { email: true } } } }),
+          this.db.orderEvent.findUnique({ where: { id: payload.eventId } }),
+        ]);
+        if (!order || order.user.email !== job.recipient || !event || event.orderId !== payload.orderId || event.toStatus !== payload.status) {
+          throw new Error('Invalid order status payload');
+        }
       } else {
         if (!('token' in payload) || typeof payload.token !== 'string') throw new Error('Invalid email payload');
         const token = await this.db.accountToken.findUnique({ where: { digest: sha256(payload.token) } });

@@ -8,6 +8,7 @@ import type { Actor } from '../identity/session.service.js';
 import type { OrderView as PlacedOrderView } from '../checkout/checkout.service.js';
 import { parseBody, uuidSchema } from '../http/schemas.js';
 import { applyMovement } from '../inventory/inventory.service.js';
+import { OutboxService } from '../email/outbox.service.js';
 import { adminTransitions, transitionSchema, collectionSchema, orderFiltersSchema, type Transition, type Collection, type OrderFilters } from './order-rules.js';
 
 export interface OrderView extends PlacedOrderView {
@@ -30,7 +31,8 @@ function view(o: LoadedOrder): OrderView {
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly db: PrismaService, private readonly identity: IdentityService) {}
+  constructor(private readonly db: PrismaService, private readonly identity: IdentityService,
+    private readonly outbox: OutboxService) {}
   private async authorize(tx: Prisma.TransactionClient, actor: Actor, adminOnly = false) {
     if (!actor) throw new UnauthorizedException();
     await this.identity.assertActiveActor(tx, actor);
@@ -116,6 +118,16 @@ export class OrdersService {
       await tx.order.update({ where: { id }, data: { ...changes, version: { increment: 1 } } });
       const event = await tx.orderEvent.create({ data: { orderId: id, actorId: actor.id, fromStatus: order.status,
         toStatus: kind === 'transition' ? (input as Transition).to : order.status, reason: input.reason, detailsJson: json({ kind, ...payload }), operationKey, payloadDigest: digest, resultJson: {} } });
+      if (kind === 'transition') {
+        const owner = await tx.user.findUniqueOrThrow({ where: { id: order.userId }, select: { email: true } });
+        const transition = input as Transition;
+        if (transition.to === 'PENDING') throw new Error('Unexpected pending order transition');
+        await this.outbox.enqueue(tx, {
+          dedupeKey: `order-status:${event.id}`, recipient: owner.email, template: 'ORDER_STATUS_CHANGED',
+          payload: { orderId: id, eventId: event.id, status: transition.to,
+            tracking: transition.to === 'SHIPPING' && transition.delivery?.mode === 'CARRIER' ? transition.delivery.tracking : null },
+        });
+      }
       await tx.auditLog.create({ data: { actorId: actor.id, action: kind === 'transition' ? 'ORDER_TRANSITIONED' : 'ORDER_COLLECTION_CHANGED', targetType: 'Order', targetId: id,
         changesJson: kind === 'transition' ? { from: order.status, to: (input as Transition).to, version: order.version + 1 } : { from: order.collectionState, to: (input as Collection).state, version: order.version + 1 } } });
       const result = view(await tx.order.findUniqueOrThrow({ where: { id }, include: includes }));

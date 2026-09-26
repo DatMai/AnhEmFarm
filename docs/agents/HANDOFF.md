@@ -23,7 +23,13 @@ The first GitHub CI runs on PR #1 failed three media integration cases because t
 
 ## UI polish follow-up — 2026-09-27
 
-The owner approved removing decorative arrow icons and adding restrained motion for navigation, dialogs, toasts, and button feedback. The change is on `feat/ui-motion-polish`, based on merged `main` commit `4200038`. Functional icons remain, and `prefers-reduced-motion` is honored. `npm ci` and `npm run build` passed in the feature worktree; tests were not run for this UI-only pass. GitHub [PR #3](https://github.com/DatMai/AnhEmFarm/pull/3) is open into `main` for owner review and is not merged.
+The owner approved removing decorative arrow icons and adding restrained motion for navigation, dialogs, toasts, and button feedback. The change was on `feat/ui-motion-polish`, based on merged `main` commit `4200038`. Functional icons remain, and `prefers-reduced-motion` is honored. `npm ci` and `npm run build` passed in the feature worktree; tests were not run for this UI-only pass. GitHub [PR #3](https://github.com/DatMai/AnhEmFarm/pull/3) was merged into `main` at `8a143ad`.
+
+## Order status email follow-up — 2026-09-27
+
+The owner authorized immediate work on order status emails and best-practice choices without repeated approval requests, with a real-user evaluation. Work is isolated on `feat/order-status-emails` from merged `origin/main` `8a143ad`. The approved commerce design and implementation plan now record the bounded notification behavior and execution steps. The backend queues an owner-only status email in the order transaction and sends it through the existing encrypted outbox worker. Status changes cover confirmation, shipping, delivery, cancellation and return; shipping can include carrier tracking as escaped text. COD collection edits do not queue status mail. The email now has a readable short reference and responsive red action button. A prior page-entry fade briefly reduced text contrast during accessibility scans, so text-bearing content now moves without fading.
+
+Fresh local verification: `npm run verify` passed client/SSR/API builds, 17 frontend tests and 159 PostgreSQL backend tests; `npm run test:e2e` passed 23/23 browser cases after a 22/23 run exposed the transient contrast issue. The fixture customer/seller journey delivered three status emails into Mailpit and verified their subjects and order links; desktop and phone email previews were inspected. A read-only reviewer found no Critical or Important issue, and its one Minor test gap was addressed. Full evidence and limits: `docs/superpowers/reviews/2026-09-27-order-status-email-verification.md`. The branch is ready for a PR into `main`; the owner will merge it. External SMTP and production delivery remain unverified.
 
 Earlier verification history follows.
 

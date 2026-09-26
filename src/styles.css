@@ -68,8 +68,8 @@
 }
 
 @keyframes farm-page-enter {
-  from { opacity: 0; transform: translateY(7px); }
-  to { opacity: 1; transform: translateY(0); }
+  from { transform: translateY(7px); }
+  to { transform: translateY(0); }
 }
 
 @keyframes farm-overlay-enter {
@@ -78,13 +78,13 @@
 }
 
 @keyframes farm-panel-enter {
-  from { opacity: 0; transform: translateY(8px) scale(0.985); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  from { transform: translateY(8px) scale(0.985); }
+  to { transform: translateY(0) scale(1); }
 }
 
 @keyframes farm-toast-enter {
-  from { opacity: 0; transform: translate(-50%, 8px); }
-  to { opacity: 1; transform: translate(-50%, 0); }
+  from { transform: translate(-50%, 8px); }
+  to { transform: translate(-50%, 0); }
 }
 
 #main-content > *:not(.error-message) {

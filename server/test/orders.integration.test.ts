@@ -6,6 +6,7 @@ import { CartService } from '../src/cart/cart.service.js';
 import { QuoteService } from '../src/checkout/quote.service.js';
 import { CheckoutService } from '../src/checkout/checkout.service.js';
 import { OrdersService } from '../src/orders/orders.service.js';
+import { EmailWorker, RecordingEmailTransport } from '../src/email/email.worker.js';
 import { InventoryService } from '../src/inventory/inventory.service.js';
 import type { OrderStatus } from '../src/generated/prisma/client.js';
 const actor = (id: string, role: 'ADMIN' | 'CUSTOMER' = 'CUSTOMER') => ({ id, role, authVersion: 1 });
@@ -21,6 +22,104 @@ describe('order ownership and fulfillment', () => {
     const q = await h.resolve(QuoteService).create(a, { address: { recipient: s.address.recipient, phone: s.address.phone, zoneId: s.zone.id, line1: s.address.line1 }, ageConfirmed: false });
     return (await h.resolve(CheckoutService).place(a, q.id, randomUUID())).order;
   }
+  it('emails the order owner once when confirmation is replayed', async () => {
+    const s = await seedScenario(h.db);
+    const order = await place(s);
+    const service = h.resolve(OrdersService);
+    const input = { to: 'CONFIRMED' as const, version: 1, operationKey: randomUUID() };
+
+    await service.transition(actor(s.admin.id, 'ADMIN'), order.id, input);
+    await service.transition(actor(s.admin.id, 'ADMIN'), order.id, input);
+
+    const jobs = await h.db.emailOutbox.findMany({
+      where: { recipient: s.customer.email, template: 'ORDER_STATUS_CHANGED' },
+    });
+    expect(jobs).toHaveLength(1);
+    const event = await h.db.orderEvent.findFirstOrThrow({ where: { orderId: order.id, toStatus: 'CONFIRMED' } });
+    expect(jobs[0].dedupeKey).toBe(`order-status:${event.id}`);
+
+    const transport = h.resolve(RecordingEmailTransport);
+    const before = transport.messages.length;
+    await h.db.emailOutbox.update({ where: { id: jobs[0].id }, data: { availableAt: new Date(0) } });
+    await h.resolve(EmailWorker).tick(new Date(1));
+    const sent = transport.messages.slice(before).filter(message => message.to === s.customer.email);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].subject).toContain('confirmed');
+    expect(sent[0].html).toContain('<h1');
+    expect(sent[0].html).toContain('Order reference');
+    expect(sent[0].text).toContain(`Order reference: ${order.id.slice(0, 8).toUpperCase()}`);
+    expect(sent[0].text).toContain(`/account/orders/${order.id}`);
+  });
+  it('includes carrier tracking in the shipping email without treating it as HTML', async () => {
+    const s = await seedScenario(h.db);
+    const order = await place(s);
+    const service = h.resolve(OrdersService);
+    const admin = actor(s.admin.id, 'ADMIN');
+    await service.transition(admin, order.id, { to: 'CONFIRMED', version: 1, operationKey: randomUUID() });
+    const tracking = 'BOX<&-123';
+    await service.transition(admin, order.id, {
+      to: 'SHIPPING', version: 2, operationKey: randomUUID(),
+      delivery: { mode: 'CARRIER', carrier: 'Test carrier', tracking },
+    });
+
+    const event = await h.db.orderEvent.findFirstOrThrow({ where: { orderId: order.id, toStatus: 'SHIPPING' } });
+    const job = await h.db.emailOutbox.findUnique({ where: { dedupeKey: `order-status:${event.id}` } });
+    expect(job).not.toBeNull();
+    expect(job!.payload).not.toContain(tracking);
+    await h.db.emailOutbox.update({ where: { id: job!.id }, data: { availableAt: new Date(0) } });
+    const transport = h.resolve(RecordingEmailTransport);
+    const before = transport.messages.length;
+    await h.resolve(EmailWorker).tick(new Date(1));
+    const [sent] = transport.messages.slice(before).filter(message => message.to === s.customer.email);
+    expect(sent.text).toContain(`Tracking: ${tracking}`);
+    expect(sent.html).toContain('BOX&lt;&amp;-123');
+    expect(sent.html).not.toContain(tracking);
+  });
+  it('does not send an order update to a recipient who is not the owner', async () => {
+    const s = await seedScenario(h.db);
+    const order = await place(s);
+    await h.resolve(OrdersService).transition(actor(s.admin.id, 'ADMIN'), order.id, {
+      to: 'CONFIRMED', version: 1, operationKey: randomUUID(),
+    });
+    const event = await h.db.orderEvent.findFirstOrThrow({ where: { orderId: order.id, toStatus: 'CONFIRMED' } });
+    await h.db.emailOutbox.update({ where: { dedupeKey: `order-status:${event.id}` },
+      data: { recipient: s.otherCustomer.email, availableAt: new Date(0) } });
+    const transport = h.resolve(RecordingEmailTransport);
+    const before = transport.messages.length;
+    await h.resolve(EmailWorker).tick(new Date(1));
+    expect(transport.messages).toHaveLength(before);
+    const dedupeKey = `order-status:${event.id}`;
+    for (let attempt = 2; attempt <= 6; attempt++) {
+      await h.db.emailOutbox.update({ where: { dedupeKey }, data: { availableAt: new Date(0) } });
+      await h.resolve(EmailWorker).tick(new Date(1));
+    }
+    const rejected = await h.db.emailOutbox.findUniqueOrThrow({ where: { dedupeKey } });
+    expect(rejected.attempts).toBe(6);
+    expect(rejected.exhaustedAt).not.toBeNull();
+    expect(rejected.payload).toBeNull();
+  });
+  it('notifies the owner when they cancel a pending order', async () => {
+    const s = await seedScenario(h.db);
+    const order = await place(s);
+    await h.resolve(OrdersService).transition(actor(s.customer.id), order.id, {
+      to: 'CANCELLED', reason: 'Changed plans', version: 1, operationKey: randomUUID(),
+    });
+    expect(await h.db.emailOutbox.count({
+      where: { recipient: s.customer.email, template: 'ORDER_STATUS_CHANGED' },
+    })).toBe(1);
+  });
+  it.each(['DELIVERED', 'RETURNED'] as const)('notifies the owner when an order becomes %s', async (status) => {
+    const s = await seedScenario(h.db);
+    const order = await place(s);
+    await h.db.order.update({ where: { id: order.id }, data: { status: 'SHIPPING' } });
+    await h.resolve(OrdersService).transition(actor(s.admin.id, 'ADMIN'), order.id, {
+      to: status, version: 1, operationKey: randomUUID(),
+      ...(status === 'RETURNED' ? { reason: 'Delivery failed', received: true, restock: [{ variantId: s.variant.id, quantity: 1 }] } : {}),
+    });
+    expect(await h.db.emailOutbox.count({
+      where: { recipient: s.customer.email, template: 'ORDER_STATUS_CHANGED' },
+    })).toBe(1);
+  });
   it.each(states.flatMap(from => states.map(to => [from, to] as const)))('%s -> %s respects explicit admin rules', async (from, to) => {
     const s = await seedScenario(h.db); const o = await place(s);
     await h.db.order.update({ where: { id: o.id }, data: { status: from } });
@@ -82,6 +181,7 @@ describe('order ownership and fulfillment', () => {
     await service.collect(a, o.id, { state: 'DUE', reason: 'Entry mistake', version: 5, operationKey: randomUUID() });
     expect((await service.collect(a, o.id, { state: 'COLLECTED', version: 6, operationKey: randomUUID() })).collectedAt).toBe(result.collectedAt);
     expect(await h.db.auditLog.count({ where: { targetId: o.id, action: 'ORDER_COLLECTION_CHANGED' } })).toBe(3);
+    expect(await h.db.emailOutbox.count({ where: { template: 'ORDER_STATUS_CHANGED', recipient: s.customer.email } })).toBe(3);
     expect(await service.collect(a, o.id, collect)).toEqual(result);
   });
   it('rejects stale versions and revoked or spoofed admins, and derives 24h attention without mutation', async () => {
@@ -143,6 +243,7 @@ describe('order ownership and fulfillment', () => {
     expect((await h.db.variant.findUniqueOrThrow({ where: { id: s.variant.id } })).stock).toBe(4);
     expect(await h.db.orderEvent.count({ where: { orderId: o.id } })).toBe(1);
     expect(await h.db.inventoryMovement.count({ where: { operationKey: `${o.id}:cancel:${s.variant.id}` } })).toBe(0);
+    expect(await h.db.emailOutbox.count({ where: { template: 'ORDER_STATUS_CHANGED', recipient: s.customer.email } })).toBe(0);
   });
   it('serializes distinct administrators collecting COD concurrently and rejects changed state on a fresh key', async () => {
     const s = await seedScenario(h.db); const o = await place(s);
