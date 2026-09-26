@@ -1,4 +1,5 @@
-import { ConflictException, ForbiddenException, Injectable, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../config.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -17,7 +18,8 @@ const safe = (value: bigint) => { const number = Number(value); if (!Number.isSa
 
 @Injectable()
 export class QuoteService {
-  constructor(private readonly db: PrismaService, private readonly identity: IdentityService) {}
+  constructor(private readonly db: PrismaService, private readonly identity: IdentityService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig) {}
   async create(actor: Actor, raw: z.infer<typeof quoteCreateSchema>): Promise<QuoteView> {
     if (!actor) throw new UnauthorizedException();
     const input = parseBody(quoteCreateSchema, raw);
@@ -27,7 +29,7 @@ export class QuoteService {
       if (!user.verifiedAt) throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED' });
       const settingsRows = await tx.$queryRaw<Array<{ id: string; salesEnabled: boolean; wineEnabled: boolean }>>`SELECT id, "salesEnabled", "wineEnabled" FROM store_settings ORDER BY id LIMIT 1 FOR UPDATE`;
       const settings = settingsRows[0];
-      if (!settings?.salesEnabled) conflict('SALES_DISABLED');
+      if (!settings?.salesEnabled || (this.config.mode === 'production' && !this.config.salesEnabled)) conflict('SALES_DISABLED');
       await tx.$queryRaw`SELECT id FROM shipping_zones WHERE id = ${input.address.zoneId}::uuid FOR UPDATE`;
       const zone = await tx.shippingZone.findUnique({ where: { id: input.address.zoneId } });
       if (!zone || !zone.enabled || zone.feeVnd < 0n) throw new UnprocessableEntityException({ code: 'INVALID_SHIPPING_ZONE' });

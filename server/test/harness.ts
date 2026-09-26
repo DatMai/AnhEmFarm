@@ -7,7 +7,7 @@ import { PrismaClient } from '../src/generated/prisma/client.js';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { Pool } from 'pg';
 import { createApp } from '../src/main.js';
-import { readConfig } from '../src/config.js';
+import { readConfig, type AppConfig } from '../src/config.js';
 
 export interface Harness {
   baseUrl: string;
@@ -20,13 +20,13 @@ export interface Harness {
 
 export interface Client { request: Harness['request'] }
 
-export async function startHarness(): Promise<Harness> {
+export async function startHarness(overrides: Partial<AppConfig> = {}): Promise<Harness> {
   loadDotEnv({ path: resolve(process.cwd(), '../.env.dev'), quiet: true });
   const databaseUrl = process.env.TEST_DATABASE_URL;
   if (!databaseUrl || !new URL(databaseUrl).pathname.slice(1).endsWith('_test')) {
     throw new Error('Integration tests require a database ending in _test');
   }
-  const config = { ...readConfig(), mode: 'test' as const, databaseUrl };
+  const config: AppConfig = { ...readConfig(), mode: 'test', ...overrides, databaseUrl };
   const db = new PrismaClient({ adapter: new PrismaPg(new Pool({ connectionString: databaseUrl, max: 5, connectionTimeoutMillis: 5000 })) });
   let app: INestApplication | undefined;
   try {

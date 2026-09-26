@@ -3,7 +3,7 @@
 Source: https://github.com/obra/superpowers
 
 Reference commit observed on 2026-09-25: `5bf4e78011075bcfc0dc295f0724994cd123ee71`.
-This pins the workflow used for discovery. It is not a claim that every harness has this version installed. The existing Codex skill catalog exposes plugin version 6.4.1; compare relevant installed instructions with the pinned upstream source instead of assuming equivalence.
+This pins the workflow used for discovery. It is not a claim that every harness has this version installed. The current Codex skill catalog exposes plugin version 6.4.2; compare relevant installed instructions with the pinned upstream source instead of assuming equivalence.
 
 ## Original sources
 
@@ -30,7 +30,7 @@ Read the actual skill and its referenced files before applying that stage; this 
 5. Obtain plan review and execution-method selection before implementation. Use the applicable upstream workspace/progress mechanism and preserve useful handoff information in tracked documentation without secrets.
 6. Execute TDD, review, verification, and branch-finishing stages. Store factual review/verification evidence with the plan or handoff.
 
-Current stage: implementation-plan review and execution-method selection. The owner's continuation request followed presentation of the English spec and was interpreted as permission to advance it into planning. This is recorded as an interpretation, not a separate quoted approval. The concrete plan is `docs/superpowers/plans/2026-09-25-commerce.md`. It has been self-reviewed; no implementation task has been executed or approved by marking a checkbox. Original writing-plans requires plan review and execution-method selection before implementation.
+Current stage: implementation and release verification. The owner approved the commerce direction and later explicitly authorized continued implementation. Tasks 1–14 were executed through the subagent workflow; the owner then requested inline execution using GPT-6-sol or below to reduce time and token cost. Tasks 15–17 use original `executing-plans` with one whole-branch review at the end. The concrete plan is `docs/superpowers/plans/2026-09-25-commerce.md`; implementation evidence is recorded in the ignored `.superpowers/sdd/2026-09-25-commerce/` ledger and tracked handoff/review documents. Earlier planning-stage statements below are historical.
 
 ## Prior baseline
 

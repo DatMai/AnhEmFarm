@@ -66,5 +66,8 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
 
 if (process.argv[1] && pathToFileURL(resolve(process.argv[1])).href === import.meta.url) {
   const app = await createApp(readConfig());
-  await app.listen(Number(process.env.PORT ?? 3000), '127.0.0.1');
+  await app.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.1');
+  const shutdown = async () => { await app.close(); process.exit(0); };
+  process.once('SIGTERM', () => { void shutdown(); });
+  process.once('SIGINT', () => { void shutdown(); });
 }

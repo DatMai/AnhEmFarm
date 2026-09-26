@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run db:generate && tsx watch src/main.ts",
+    "dev": "npm run db:generate && node scripts/dev.mjs",
     "build": "npm run db:generate && tsc -p tsconfig.json",
     "start": "node dist/src/main.js",
-    "worker": "tsx src/worker.ts",
+    "worker": "node dist/src/worker.js",
     "typecheck": "npm run db:generate && tsc --noEmit -p tsconfig.json",
     "test": "npm run db:generate && vitest run",
     "test:integration": "npm run db:generate && vitest run --config vitest.config.ts",
@@ -46,5 +46,9 @@
     "tsx": "4.23.15",
     "typescript": "5.9.3",
     "vitest": "5.0.2"
+  },
+  "overrides": {
+    "deepmerge-ts": "8.0.2",
+    "mysql2": "3.24.4"
   }
 }

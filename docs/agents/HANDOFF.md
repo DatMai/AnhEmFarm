@@ -1,6 +1,14 @@
 # AnhEmFarm handoff
 
-Updated: 2026-09-25.
+Updated: 2026-09-26.
+
+## Current implementation status
+
+Commerce implementation is in the isolated worktree `/Users/daemonthetarnished/.codex/worktrees/commerce-implementation/AnhEmFarm`; the owner's main checkout is still at the older storefront until branch integration. Tasks 1–16 are committed; Task 17 deployment and verification work is in progress. The owner requested inline execution with GPT-6-sol or below after Task 14, followed by one whole-branch review. Do not redo completed tasks.
+
+Current capabilities include PostgreSQL-backed registration/verification, sessions, catalog, inventory, COD checkout, order history and fulfillment, seller management, reporting, approved pages and server-rendered public HTML. Test fixtures are synthetic and sales data is not configured for live use.
+
+Latest Task 17 evidence: `npm run verify` passed 146/146 backend and 14/14 frontend tests; `npm run test:e2e` passed 16/16 after the final production environment gate change; Node 24 production image built; isolated Compose migration/API/worker smoke reached readiness 200; plaintext synthetic test-data restore drill matched counts and cleared sessions; both npm audits reported 0 vulnerabilities. The encrypted offsite backup, real domain/TLS, SMTP, object storage and owner-approved catalog/policies cannot be verified without external configuration. Final whole-branch review, Task 17 commit and branch integration remain pending. See `.superpowers/sdd/2026-09-25-commerce/progress.md` for the execution ledger and `docs/operations/` for runbooks.
 
 ## Current objective
 
@@ -27,7 +35,7 @@ Build a complete production commerce website: customer registration/login, brows
 - Created and self-reviewed `docs/superpowers/plans/2026-09-25-commerce.md`: 17 dependent tasks with file ownership, API/schema contracts, test examples, implementation steps, commands and release gates. Plan and execution method await review. No backend code has been written. The storefront and repository documents remain in English.
 - After the language change, `npm run build` passed. Browser checks showed the English catalog, Coffee filter returning two items, an item added to and removed from the interest list, and English search for Arabica returning one item. These checks cover the current visual storefront only.
 
-## Next action
+## Historical planning next action
 
 Present the concrete implementation plan and ask for plan review plus execution-method selection, as required by original writing-plans. Recommend subagent-driven implementation with per-task reviews due to account/inventory/order risks. After selection, read that execution skill and original using-git-worktrees, preserve the existing preview, and begin Task 1. No fresh spec approval is being requested.
 

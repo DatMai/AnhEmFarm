@@ -26,7 +26,7 @@ These are project instructions. They do not install Superpowers or replace a har
 
 ## Product constraints
 
-- Approved direction: Node.js + TypeScript backend, React frontend, PostgreSQL, COD first. Do not implement Django; the owner explicitly rejected it. The written spec selects NestJS/Prisma; the concrete implementation plan is ready for review and execution-method selection.
+- Approved direction: Node.js + TypeScript backend, React frontend, PostgreSQL, COD first. Do not implement Django; the owner explicitly rejected it. The written spec selects NestJS/Prisma; the implementation plan is being executed in an isolated worktree.
 - Brand: AnhEmFarm; English is required for all repository documents and all text visible inside the app, including metadata, alt text, labels, errors, emails, and admin UI. Vietnamese localization comes later. Keep the red identity and responsive, keyboard-accessible UI.
 - Product families: mulberry, Robusta/Arabica coffee, provisional tea and honey.
 - Never invent confirmed prices, stock, sourcing, certifications, contact information, legal policies, or successful payments. Separate test fixtures from live data.
@@ -45,12 +45,16 @@ These are project instructions. They do not install Superpowers or replace a har
 
 ## Current commands
 
-The project is currently a React/TypeScript/Vite storefront only.
+The project has a React/TypeScript/Vite storefront, SSR bundle, NestJS API and PostgreSQL schema. Configure `.env.dev`, PostgreSQL 17 and Mailpit first; see `docs/operations/local-development.md`.
 
 ```sh
 npm ci
+npm --prefix server ci
+npm --prefix server run db:migrate
 npm run dev
-npm run build
+npm --prefix server run dev
+npm run verify
+npm run test:e2e
 ```
 
-There is currently no automated test command or backend. Update this section when those are implemented and verified.
+Use `docs/operations/release-checklist.md` for deployment gates. Never describe fixture data as live business data.

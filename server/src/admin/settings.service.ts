@@ -40,7 +40,7 @@ export class SettingsService {
   async publicStore() {
     const row = await this.db.storeSettings.findFirst();
     return { businessName: row?.businessName ?? null, supportEmail: row?.supportEmail ?? null,
-      supportPhone: row?.supportPhone ?? null, salesEnabled: row?.salesEnabled ?? false };
+      supportPhone: row?.supportPhone ?? null, salesEnabled: (row?.salesEnabled ?? false) && (this.config.mode !== 'production' || this.config.salesEnabled) };
   }
   async update(actor: Actor, raw: z.infer<typeof settingsUpdateSchema>) {
     const input = parseBody(settingsUpdateSchema, raw);
@@ -56,7 +56,7 @@ export class SettingsService {
             product: { status: 'PUBLISHED', confirmed: true, restricted18: false } } }),
           tx.contentPage.count({ where: { slug: { in: ['shipping', 'privacy', 'terms', 'returns'] }, status: 'PUBLISHED', approvedAt: { not: null } } }),
         ]);
-        if (this.config.mode !== 'production' || !input.confirmLaunch || !input.businessName ||
+        if (this.config.mode !== 'production' || !this.config.salesEnabled || !input.confirmLaunch || !input.businessName ||
           !input.supportEmail || !input.supportPhone || !zones || !products || pages !== 4)
           throw new UnprocessableEntityException({ code: 'LAUNCH_REQUIREMENTS_MISSING' });
       }

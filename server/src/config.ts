@@ -65,7 +65,7 @@ export function validateConfig(config: AppConfig): AppConfig {
   if (Boolean(config.smtp.user) !== Boolean(config.smtp.password)) throw new Error('Invalid SMTP credentials');
   if (config.mode === 'production' &&
     (!config.origin.startsWith('https://') || config.demoEnabled ||
-     !config.sessionSecret || config.emailPayloadKey.length < 32 ||
+     config.sessionSecret.length < 32 || config.emailPayloadKey.length < 32 ||
      !config.smtp.host || !config.smtp.from || !config.storage.bucket)) {
     throw new Error('Invalid production configuration');
   }

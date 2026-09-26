@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../config.js';
 import { Prisma } from '../generated/prisma/client.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -24,7 +25,8 @@ const json = (value: unknown) => value as Prisma.InputJsonValue;
 
 @Injectable()
 export class CheckoutService {
-  constructor(private readonly db: PrismaService, private readonly identity: IdentityService, private readonly outbox: OutboxService) {}
+  constructor(private readonly db: PrismaService, private readonly identity: IdentityService, private readonly outbox: OutboxService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig) {}
 
   private async replay(tx: Prisma.TransactionClient, orderId: string): Promise<Placement> {
     const event = await tx.orderEvent.findUniqueOrThrow({ where: { orderId_operationKey: { orderId, operationKey: 'placement' } } });
@@ -65,7 +67,7 @@ export class CheckoutService {
         return this.replay(tx, existing.id);
       }
       if (quote.status !== 'OPEN' || quote.expiresAt <= new Date()) conflict('QUOTE_EXPIRED');
-      if (!settings?.salesEnabled) conflict('SALES_DISABLED');
+      if (!settings?.salesEnabled || (this.config.mode === 'production' && !this.config.salesEnabled)) conflict('SALES_DISABLED');
       if (!zone.enabled || zone.version !== quote.shippingZoneVersion || zone.feeVnd !== quote.feeVnd) conflict('SHIPPING_CHANGED');
       const lines = quote.linesJson as unknown as QuoteView['items'];
       const ids = lines.map(line => line.variantId).sort();

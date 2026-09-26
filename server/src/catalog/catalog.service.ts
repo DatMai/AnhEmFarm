@@ -1,4 +1,5 @@
-import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { APP_CONFIG, type AppConfig } from '../config.js';
 import { Prisma, type ProductStatus } from '../generated/prisma/client.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { withTransaction } from '../db/transaction.js';
@@ -49,7 +50,7 @@ export class CatalogService {
   }
 
   constructor(private readonly db: PrismaService, private readonly audit: AuditService,
-    private readonly identity: IdentityService) {}
+    private readonly identity: IdentityService, @Inject(APP_CONFIG) private readonly config: AppConfig) {}
   private async assertAdmin(tx: Prisma.TransactionClient, actor: Actor): Promise<void> {
     await this.identity.assertActiveActor(tx, actor);
     const user = await tx.user.findUnique({ where: { id: actor.id }, select: { role: true } });
@@ -59,7 +60,10 @@ export class CatalogService {
     await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
     await tx.$queryRaw`SELECT id FROM variants WHERE "productId" = ${productId}::uuid ORDER BY id FOR UPDATE`;
   }
-  private async settings() { return (await this.db.storeSettings.findFirst()) ?? { salesEnabled: false, wineEnabled: false }; }
+  private async settings() {
+    const row = (await this.db.storeSettings.findFirst()) ?? { salesEnabled: false, wineEnabled: false };
+    return { ...row, salesEnabled: row.salesEnabled && (this.config.mode !== 'production' || this.config.salesEnabled) };
+  }
   private serialize(product: LoadedProduct, settings: { salesEnabled: boolean; wineEnabled: boolean }): ProductDetail {
     const sale = product.variants.filter(variant => canPurchase(product, variant, settings));
     const prices = product.variants.filter(variant => product.confirmed && variant.saleEnabled &&

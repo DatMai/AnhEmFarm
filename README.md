@@ -1,37 +1,35 @@
 # AnhEmFarm
 
-The current site is a visual storefront and interest list for mulberries, coffee, and proposed tea and honey ranges. English is the language of the app and all project documentation. Vietnamese localization is planned for a later phase.
+AnhEmFarm is a React storefront and Node.js/TypeScript commerce API for mulberry products, Robusta and Arabica coffee, and provisional tea and honey ranges. All app and repository content is English. Cash on delivery (COD) is the initial checkout method.
 
-Read [AGENTS.md](AGENTS.md), the [handoff](docs/agents/HANDOFF.md), and the [original Superpowers reference](docs/agents/SUPERPOWERS.md) before continuing work. The React + Node.js/TypeScript + PostgreSQL direction and cash on delivery were approved. The [commerce design specification](docs/superpowers/specs/2026-09-25-commerce-design.md) has been advanced into the [implementation plan](docs/superpowers/plans/2026-09-25-commerce.md). The plan awaits review and execution-method selection. The backend has not been built.
+Customers can register, verify email, sign in, browse published products, manage a cart and addresses, place COD orders, and follow their order history. Sellers can manage catalog, images, stock, customers, fulfillment, COD collection, shipping zones, store settings, approved pages, audits, and failed email jobs. PostgreSQL holds accounts, stock and orders; the browser is never the business record.
 
-## Run locally
+The site is **not enabled for real sales by this repository alone**. Confirmed product data, approved policies, business details, real delivery zones, domain, SMTP, object storage, backup destination and deployment credentials are needed. The sales switch is guarded by server checks.
 
-Use Node.js 20.19+ or 22.12+ for the current Vite frontend.
+## Local development
 
-```bash
+Use Node.js 24, Docker and PostgreSQL 17. See [local development](docs/operations/local-development.md) for setup. Once `.env.dev` is configured:
+
+```sh
+docker compose -f deploy/compose.dev.yml --env-file .env.dev up -d
 npm ci
+npm --prefix server ci
+npm --prefix server run db:migrate
+npm --prefix server run dev
 npm run dev
 ```
 
-Open the local URL printed by Vite. To check the static build:
+The API runs on `127.0.0.1:3000` and Vite on the URL it prints. The local SMTP viewer is Mailpit at `127.0.0.1:8025`. Development records are separate from test fixtures.
 
-```bash
-npm run build
-npm run preview
+## Verification
+
+```sh
+npm run verify
+npm run test:e2e
 ```
 
-The static output is in `dist/`.
+`verify` builds client/SSR/API and runs frontend/backend tests against a migrated test database ending in `_test`. The browser suite needs PostgreSQL and Mailpit. CI uses Node 24 and PostgreSQL 17. Review [deployment](docs/operations/deployment.md), [backup and restore](docs/operations/backup-restore.md), and the [release checklist](docs/operations/release-checklist.md) before any live launch.
 
-## Current content and limitations
+## Agent workflow
 
-- Edit product names, descriptions, images, and statuses in `src/catalog.ts`.
-- Illustrative images created for this project are in `public/images/`.
-- Prices, pack sizes, inventory, and official contact details have not been provided. The site does not invent them.
-- Tea and honey are proposed ranges. They cannot be added to the interest list.
-- The interest list uses browser `localStorage` and can be copied. The current site does not accept orders or online payments.
-
-Before live sales, confirm prices, SKUs, inventory, real product photos, business and support information, shipping rates, and approved policies. Mulberry wine requires confirmed product details and an appropriate age-control flow before online sales are enabled.
-
-## Technology
-
-The existing frontend uses React, TypeScript, Vite, and plain CSS. Product data is separate from the interface so it can later be served by the planned API.
+Read [AGENTS.md](AGENTS.md), [handoff](docs/agents/HANDOFF.md), the [original Superpowers provenance](docs/agents/SUPERPOWERS.md), the [approved design](docs/superpowers/specs/2026-09-25-commerce-design.md), and the [implementation plan](docs/superpowers/plans/2026-09-25-commerce.md). Test fixtures and illustrative images are labeled; do not copy them into live catalog data.
