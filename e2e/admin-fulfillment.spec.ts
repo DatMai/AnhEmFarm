@@ -100,6 +100,7 @@ test('real seller fulfillment updates customer order and collected dashboard val
     await page.getByLabel('Email').fill(fixture.customer.email)
     await page.getByLabel('Password', { exact: true }).fill(fixture.customer.password)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
+    await expect(page.getByRole('link', { name: 'Test Customer', exact: true })).toBeVisible()
     await page.goto(`/account/orders/${created.orderId}`)
     await expect(page.getByText('Delivered', { exact: true })).toBeVisible()
   } finally {
