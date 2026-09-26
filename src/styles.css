@@ -35,3 +35,27 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Preview catalog and information routes */
+.categories-section .category-grid{grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.categories-section .category-card{height:275px}
+.categories-section .category-info strong{font-size:clamp(18px,2vw,26px)}
+.preview-notice{background:#fff3ed;border-left:4px solid #a9273b;border-radius:4px;padding:12px 15px;color:#713b37!important;font-size:12px!important;line-height:1.6!important}
+.detail-secondary-link{display:inline-flex;margin-top:22px;color:#a9273b;font-size:13px;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.catalog-back-link{display:inline-flex;margin-top:13px;color:#a9273b;font-size:12px;font-weight:800;text-decoration:underline;text-underline-offset:3px}
+.related-products{margin-top:72px;padding-top:40px;border-top:1px solid #ebdfd7}
+.related-products .section-heading{margin-bottom:24px}
+.pending-content{min-height:60vh;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.8fr);gap:clamp(30px,6vw,90px);align-items:start}
+.pending-content-main h1{font-size:clamp(38px,5vw,58px);letter-spacing:-2px;margin:12px 0 18px}
+.pending-content-main p{color:#675a52;font-size:14px;line-height:1.8;max-width:650px}
+.pending-content-main .pending-lead{font-size:clamp(18px,2vw,23px);font-weight:700;color:#332a27;line-height:1.45}
+.pending-actions{display:flex;align-items:center;flex-wrap:wrap;gap:22px;margin-top:30px}
+.pending-content-aside{background:#fbf5ee;border:1px solid #e9ded2;border-radius:10px;padding:28px}
+.pending-status{display:inline-block;background:#f9e7df;color:#9a2a3c;border-radius:30px;padding:7px 11px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}
+.pending-content-aside h2{font-size:22px;letter-spacing:-.5px;margin:22px 0 8px}
+.pending-content-aside p{font-size:12px;line-height:1.7;color:#6c5d54}
+.pending-content-aside nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:22px}
+.pending-content-aside nav a{font-size:12px;font-weight:800;color:#9a2a3c;border-bottom:1px solid #e8d8cf;padding:8px 0}
+@media(max-width:1100px){.categories-section .category-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:900px){.desktop-nav{display:none}.mobile-menu-button{display:inline-grid}}
+@media(max-width:700px){.categories-section .category-card{height:205px}.pending-content{grid-template-columns:1fr;gap:25px}.pending-content-aside{padding:22px}.pending-actions{gap:15px}.related-products{margin-top:50px;padding-top:30px}}

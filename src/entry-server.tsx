@@ -6,7 +6,7 @@ import { SessionProvider } from './features/auth/session'
 import { HomePage } from './features/catalog/HomePage'
 import { ProductListPage } from './features/catalog/ProductListPage'
 import { ProductPage } from './features/catalog/ProductPage'
-import { ContentPage, type PublicContent } from './features/content/ContentPage'
+import { ContentPage, PendingContent, type PublicContent } from './features/content/ContentPage'
 import { NotFoundPage } from './features/content/NotFoundPage'
 import { publicKey } from './lib/query-client'
 import type { Category, Page, ProductDetail, ProductSummary } from './features/catalog/types'
@@ -49,7 +49,7 @@ export async function renderPublicPage(url: string, data: PublicPageData): Promi
   if (data.categories) client.setQueryData(publicKey('categories'), data.categories)
   if (data.product) client.setQueryData(publicKey('product', data.product.slug), data.product)
   if (data.content) client.setQueryData(publicKey('content', data.content.slug), data.content)
-  const body = status === 404 ? <NotFoundPage /> : path === '/' ? <HomePage /> : path === '/products' ? <ProductListPage /> : productSlug ? <ProductPage /> : <ContentPage slug={contentSlug} />
+  const body = status === 404 ? (contentSlug ? <PendingContent slug={contentSlug} /> : <NotFoundPage />) : path === '/' ? <HomePage /> : path === '/products' ? <ProductListPage /> : productSlug ? <ProductPage /> : <ContentPage slug={contentSlug} />
   const route = productSlug ? '/products/:slug' : path.startsWith('/policies/') ? '/policies/:slug' : path
   const html = renderToString(<QueryClientProvider client={client}><SessionProvider><StaticRouter location={url}><Routes><Route element={<Layout />}><Route path={route} element={body} /></Route></Routes></StaticRouter></SessionProvider></QueryClientProvider>)
   const structuredData = status === 200 && data.product && data.product.slug === productSlug ? {

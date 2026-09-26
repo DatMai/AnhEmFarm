@@ -20,7 +20,7 @@ export class WebController {
     const slug = String(request.params.slug ?? '');
     const data: { products?: unknown; categories?: unknown; product?: unknown; content?: unknown } = {};
     try {
-      if (path === '/') data.products = await this.catalog.list(parse(productQuery, { pageSize: '4' }));
+      if (path === '/') data.products = await this.catalog.list(parse(productQuery, { pageSize: '12' }));
       else if (path === '/products') {
         data.products = await this.catalog.list(parse(productQuery, Object.fromEntries(url.searchParams)));
         data.categories = await this.catalog.categories(1, 100);

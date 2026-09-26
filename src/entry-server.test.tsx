@@ -15,4 +15,10 @@ describe('public server rendering', () => {
     const page = await renderPublicPage('/products/missing', {})
     expect(page.status).toBe(404)
   })
+  it('renders helpful content for an unpublished policy while keeping 404 status', async () => {
+    const page = await renderPublicPage('/policies/shipping', {})
+    expect(page.status).toBe(404)
+    expect(page.html).toContain('Shipping information')
+    expect(page.html).toContain('Official shipping details are being prepared')
+  })
 })
