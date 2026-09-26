@@ -9,7 +9,8 @@ import { CatalogModule } from './catalog/catalog.module.js';
 import { MediaModule } from './media/media.controller.js';
 import { CartController } from './cart/cart.controller.js';
 import { CartService } from './cart/cart.service.js';
-import { CheckoutController } from './checkout/checkout.controller.js';
+import { CheckoutController, OrderPlacementController } from './checkout/checkout.controller.js';
+import { CheckoutService } from './checkout/checkout.service.js';
 import { QuoteService } from './checkout/quote.service.js';
 
 @Global()
@@ -19,8 +20,8 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
-      controllers: [HealthController, CsrfController, CartController, CheckoutController],
-      providers: [{ provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService],
+      controllers: [HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController],
+      providers: [{ provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }

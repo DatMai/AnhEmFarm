@@ -4,7 +4,7 @@ import nodemailer from 'nodemailer';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { sha256 } from '../identity/session.service.js';
-import { renderEmail, type EmailMessage, type EmailTemplate } from './email.templates.js';
+import { renderEmail, type EmailMessage, type EmailTemplate, type EmailPayload } from './email.templates.js';
 import { OutboxService } from './outbox.service.js';
 
 export const EMAIL_TRANSPORT = 'EMAIL_TRANSPORT';
@@ -87,15 +87,20 @@ export class EmailWorker {
 
   private async deliver(job: ClaimedJob): Promise<void> {
     if (!job.payload) { await this.discard(job, 'PAYLOAD_UNAVAILABLE'); return; }
-    if (!['VERIFY', 'RESET'].includes(job.template)) { await this.fail(job); return; }
-    let payload: { token: string };
-    let token: Awaited<ReturnType<typeof this.db.accountToken.findUnique>>;
+    if (!['VERIFY', 'RESET', 'ORDER_CREATED'].includes(job.template)) { await this.fail(job); return; }
+    let payload: EmailPayload;
     try {
-      payload = this.outbox.decrypt(job.payload);
-      if (typeof payload.token !== 'string') throw new Error('Invalid email payload');
-      token = await this.db.accountToken.findUnique({ where: { digest: sha256(payload.token) } });
+      payload = this.outbox.decrypt<EmailPayload>(job.payload);
+      if (job.template === 'ORDER_CREATED') {
+        if (!('orderId' in payload)) throw new Error('Invalid order payload');
+        const order = await this.db.order.findUnique({ where: { id: payload.orderId } });
+        if (!order || Number(order.totalVnd) !== payload.totalVnd) throw new Error('Invalid order payload');
+      } else {
+        if (!('token' in payload) || typeof payload.token !== 'string') throw new Error('Invalid email payload');
+        const token = await this.db.accountToken.findUnique({ where: { digest: sha256(payload.token) } });
+        if (!token || token.usedAt || token.expiresAt <= new Date()) { await this.discard(job, 'TOKEN_UNUSABLE'); return; }
+      }
     } catch { await this.fail(job); return; }
-    if (!token || token.usedAt || token.expiresAt <= new Date()) { await this.discard(job, 'TOKEN_UNUSABLE'); return; }
     const timer = setInterval(() => {
       void this.db.emailOutbox.updateMany({ where: { id: job.id, leaseId: job.leaseId, sentAt: null, exhaustedAt: null },
         data: { leaseUntil: new Date(Date.now() + 120_000) } }).catch(() => undefined);
@@ -104,7 +109,7 @@ export class EmailWorker {
       await this.transport.send(renderEmail(this.config, job.recipient, job.template as EmailTemplate, payload));
       await this.ack(job.id, job.leaseId);
     } catch { await this.fail(job); }
-    finally { clearInterval(timer); payload.token = ''; }
+    finally { clearInterval(timer); if ('token' in payload) payload.token = ''; }
   }
 
   async tick(now?: Date): Promise<number> {

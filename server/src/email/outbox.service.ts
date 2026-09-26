@@ -3,9 +3,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { Prisma } from '../generated/prisma/client.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { PrismaService } from '../db/prisma.service.js';
-import type { EmailTemplate } from './email.templates.js';
+import type { EmailTemplate, EmailPayload } from './email.templates.js';
 
-export interface EnqueueEmail { dedupeKey: string; recipient: string; template: EmailTemplate; payload: { token: string } }
+export interface EnqueueEmail { dedupeKey: string; recipient: string; template: EmailTemplate; payload: EmailPayload }
 
 @Injectable()
 export class OutboxService {
@@ -15,7 +15,7 @@ export class OutboxService {
     this.key = createHash('sha256').update(config.emailPayloadKey).digest();
   }
 
-  encrypt(payload: { token: string }): string {
+  encrypt(payload: EmailPayload): string {
     const nonce = randomBytes(12);
     const clear = Buffer.from(JSON.stringify(payload));
     try {
@@ -25,13 +25,13 @@ export class OutboxService {
     } finally { clear.fill(0); }
   }
 
-  decrypt(encrypted: string): { token: string } {
+  decrypt<T = { token: string }>(encrypted: string): T {
     const [version, nonce, tag, ciphertext] = encrypted.split(':');
     if (version !== 'v1' || !nonce || !tag || !ciphertext) throw new Error('Invalid email payload');
     const decipher = createDecipheriv('aes-256-gcm', this.key, Buffer.from(nonce, 'base64url'));
     decipher.setAuthTag(Buffer.from(tag, 'base64url'));
     const clear = Buffer.concat([decipher.update(Buffer.from(ciphertext, 'base64url')), decipher.final()]);
-    try { return JSON.parse(clear.toString('utf8')) as { token: string }; }
+    try { return JSON.parse(clear.toString('utf8')) as T; }
     finally { clear.fill(0); }
   }
 

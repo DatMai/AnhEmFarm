@@ -64,6 +64,7 @@ model User {
  merges CartMerge[]
  quotes CheckoutQuote[]
  orders Order[]
+ placementKeys OrderPlacementKey[]
  actorEvents OrderEvent[]
  movements InventoryMovement[]
  audits AuditLog[]
@@ -264,6 +265,7 @@ model Order {
  cartPreserved Boolean @default(false)
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
+ placementKeys OrderPlacementKey[]
  items OrderItem[]
  events OrderEvent[]
  movements InventoryMovement[]
@@ -390,4 +392,17 @@ model EmailOutbox {
  updatedAt DateTime @updatedAt
  @@index([availableAt,leaseUntil])
  @@map("email_outbox")
+}
+
+model OrderPlacementKey {
+ id String @id @default(uuid()) @db.Uuid
+ userId String @db.Uuid
+ user User @relation(fields:[userId],references:[id],onDelete:Restrict)
+ key String
+ requestDigest String
+ orderId String @db.Uuid
+ order Order @relation(fields:[orderId],references:[id],onDelete:Restrict)
+ createdAt DateTime @default(now())
+ @@unique([userId,key])
+ @@map("order_placement_keys")
 }

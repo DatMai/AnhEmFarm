@@ -41,3 +41,7 @@ Present the concrete implementation plan and ask for plan review plus execution-
 ## External inputs for a real launch
 
 Confirm product prices/SKUs/inventory, business and support details, shipping regions/fees, approved policy content, domain/hosting, email delivery and any chosen payment/shipping provider accounts. Missing production inputs must not be replaced by live-looking invented data. These inputs need not prevent isolated development and test fixtures after design approval.
+
+## Task 11 implementation handoff (2026-09-26)
+
+The approved subagent execution ledger is `.superpowers/sdd/2026-09-25-commerce/progress.md`; earlier planning-stage status above is historical. Task 11 adds atomic COD placement, persisted replay aliases, stable original-response replay, cart version preservation and a deliverable encrypted receipt outbox job. The additive `20260926051000_order_placement_keys` migration has been applied to the test database only. Later deployment/development startup must apply it before using placement. See `task-11-report.md` in that ledger directory for RED/GREEN evidence and protocol choices. Controller review is pending; no production readiness claim is made.
