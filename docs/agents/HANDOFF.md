@@ -4,6 +4,8 @@ Updated: 2026-09-26.
 
 ## Current state
 
+The local preview now runs the separate email worker alongside API/Vite. Registration queues verification mail; the worker delivers it to Mailpit at `http://127.0.0.1:8025`, not an external inbox. The registration page links to Mailpit in Vite development mode. This addresses the missing worker in the prior preview; two queued local messages were delivered after it started.
+
 An explicit local shopping fixture is now available with `DEMO_SHOPPING=true` alongside `ALLOW_DEMO_SEED=true`. It assigns fictional VND prices and demo stock to the ten local listings, a demo delivery zone, demo information pages, and enables development COD orders; wine stays unavailable. The fixture is guarded by `_dev`/`_test` database names and is never automatic. A single real-browser E2E case checks customer login, catalog, cart, quote, COD placement, seller login, order fulfillment and customer delivery status against PostgreSQL.
 The local shopping verification record is `docs/superpowers/reviews/2026-09-26-demo-shopping-verification.md`. Its fresh suite result is 17 frontend and 153 backend tests plus 5 catalog browser cases and the one combined shopping/admin browser case.
 
@@ -31,6 +33,7 @@ npm --prefix server ci
 npm --prefix server run db:migrate
 npm run dev
 npm --prefix server run dev
+npm --prefix server run worker
 npm run verify
 npm run test:e2e
 ```
