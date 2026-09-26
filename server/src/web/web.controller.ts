@@ -18,7 +18,7 @@ export class WebController {
     const url = new URL(request.originalUrl, this.config.origin);
     const path = url.pathname;
     const slug = String(request.params.slug ?? '');
-    const data: { products?: unknown; categories?: unknown; product?: unknown; content?: unknown } = {};
+    const data: { products?: unknown; categories?: unknown; product?: unknown; content?: unknown; missingContentSlug?: string } = {};
     try {
       if (path === '/') data.products = await this.catalog.list(parse(productQuery, { pageSize: '12' }));
       else if (path === '/products') {
@@ -32,6 +32,8 @@ export class WebController {
     } catch (error) {
       if (!(error instanceof Error && 'status' in error && error.status === 404)) throw error;
     }
+    if ((path === '/about' || path === '/contact' || path.startsWith('/policies/')) && !data.content)
+      data.missingContentSlug = path === '/about' ? 'about' : path === '/contact' ? 'contact' : slug;
     const page = await renderPage(request.originalUrl, this.config.origin, data);
     response.status(page.status).set({ 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'public, max-age=0, must-revalidate' }).send(page.html);
   }

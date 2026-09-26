@@ -22,6 +22,7 @@ if (initial?.textContent) {
   if (data.categories) queryClient.setQueryData(publicKey('categories'), data.categories)
   if (data.product) queryClient.setQueryData(publicKey('product', data.product.slug), data.product)
   if (data.content) queryClient.setQueryData(publicKey('content', data.content.slug), data.content)
+  if (data.missingContentSlug) queryClient.setQueryData(publicKey('content', data.missingContentSlug), null)
 }
 const root = document.getElementById('root')!
 const app = <React.StrictMode><App /></React.StrictMode>

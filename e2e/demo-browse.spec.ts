@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 
 const demo = { id: 'demo-1', slug: 'demo-mulberry-jam', name: 'Mulberry jam',
   category: { id: 'mulberries', slug: 'mulberries', name: 'Mulberries' }, images: [],
-  startingPriceVnd: null, purchasable: false }
+  startingPriceVnd: null, purchasable: false, confirmed: false }
 
 test('preview listing has illustrative artwork and a useful product detail', async ({ page }) => {
   await page.route('**/api/v1/products?*', route => route.fulfill({ json: { items: [demo], page: 1, pageSize: 20, total: 1 } }))
@@ -18,6 +18,20 @@ test('preview listing has illustrative artwork and a useful product detail', asy
   await expect(page.locator('.detail-image img')).toHaveAttribute('src', '/images/jam.jpg')
   await expect(page.locator('.preview-notice')).toContainText('Preview listing')
   await expect(page.getByRole('button', { name: /add jar to cart/i })).toBeDisabled()
+})
+
+test('a confirmed former preview no longer claims ordering is unavailable', async ({ page }) => {
+  const confirmed = { ...demo, confirmed: true, startingPriceVnd: 75_000, purchasable: true }
+  await page.route('**/api/v1/products?*', route => route.fulfill({ json: { items: [confirmed], page: 1, pageSize: 20, total: 1 } }))
+  await page.route('**/api/v1/categories?*', route => route.fulfill({ json: { items: [demo.category], page: 1, pageSize: 100, total: 1 } }))
+  await page.route('**/api/v1/products/demo-mulberry-jam', route => route.fulfill({ json: { ...confirmed,
+    description: 'Confirmed product details.', restricted18: false,
+    variants: [{ id: 'variant-1', label: 'Jar', packDetails: '250 g', priceVnd: 75_000, inStock: true, saleEnabled: true }] } }))
+  await page.goto('/products')
+  await expect(page.locator('.product-card .product-badge')).toHaveCount(0)
+  await page.getByRole('link', { name: 'Mulberry jam', exact: true }).click()
+  await expect(page.locator('.preview-notice')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: /add jar to cart/i })).toBeEnabled()
 })
 
 test('unpublished information pages explain their status and offer navigation', async ({ page }) => {

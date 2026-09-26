@@ -30,11 +30,12 @@ export function PendingContent({ slug }: { slug: string }) {
 export function ContentPage({ slug: fixedSlug }: { slug?: string }) {
   const params = useParams()
   const slug = fixedSlug ?? params.slug ?? ''
-  const query = useQuery({
+  const query = useQuery<PublicContent | null>({
     queryKey: publicKey('content', slug),
     queryFn: ({ signal }) => api<PublicContent>(`/content/${encodeURIComponent(slug)}`, { signal }),
     retry: (count, error) => !(error instanceof ApiError && error.status === 404) && count < 1
   })
+  if (query.data === null) return <PendingContent slug={slug} />
   if (query.isPending) return <section className="container section"><PageState title="Loading page" /></section>
   if (query.isError && query.error instanceof ApiError && query.error.status === 404) return <PendingContent slug={slug} />
   if (query.isError) return <section className="container section"><PageState title="Page unavailable"><Link to="/products">Browse products</Link></PageState></section>

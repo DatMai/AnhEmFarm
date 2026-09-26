@@ -81,9 +81,9 @@ export function ProductPage() {
       </div>
     )
   const product = query.data
-  const demoPhoto = previewImage(product.slug)
+  const demoPhoto = previewImage(product.slug, product.confirmed)
   const image = imageUrl(product.images[0]) ?? demoPhoto
-  const illustrative = Boolean(product.images[0]?.illustrative || demoPhoto)
+  const illustrative = Boolean(product.images[0]?.illustrative || (!product.images.length && demoPhoto))
   const relatedItems = related.data?.items.filter(item => item.id !== product.id).slice(0, 4) ?? []
   return (
     <section className="container section detail-section">
@@ -100,12 +100,12 @@ export function ProductPage() {
           ) : (
             <div className="image-placeholder" />
           )}{' '}
-          {illustrative && <span>{demoPhoto ? 'Preview listing · illustrative image' : 'Illustrative image'}</span>}
+          {illustrative && <span>{!product.images.length && demoPhoto ? 'Preview listing · illustrative image' : 'Illustrative image'}</span>}
         </div>
         <div className="detail-copy">
           <span className="section-kicker">{product.category.name}</span>
           <h1>{product.name}</h1>
-          {demoPhoto && <p className="preview-notice">Preview listing. Images are illustrative; product details and pricing have not been confirmed. Ordering is unavailable.</p>}
+          {demoPhoto && <p className="preview-notice">Preview listing. {product.images.length ? '' : 'The image is illustrative. '}Product details and pricing have not been confirmed. Ordering is unavailable.</p>}
           <p>{product.description}</p>
           {product.restricted18 && (
             <p className="notice">

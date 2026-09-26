@@ -24,20 +24,16 @@ const products = [
 export async function seedDemoCatalog(tx: Prisma.TransactionClient): Promise<void> {
   const categoryIds = new Map<string, string>();
   for (const category of categories) {
-    const row = await tx.category.upsert({ where: { slug: category.slug }, update: { name: category.name }, create: category });
+    const row = await tx.category.upsert({ where: { slug: category.slug }, update: {}, create: category });
     categoryIds.set(category.slug, row.id);
   }
   for (const item of products) {
-    const row = await tx.product.upsert({ where: { slug: item.slug },
-      update: { name: item.name, categoryId: categoryIds.get(item.category)!, description: item.description,
-        status: 'PUBLISHED', confirmed: false, restricted18: 'restricted18' in item && item.restricted18 },
+    const row = await tx.product.upsert({ where: { slug: item.slug }, update: {},
       create: { slug: item.slug, name: item.name, categoryId: categoryIds.get(item.category)!, description: item.description,
         status: 'PUBLISHED', confirmed: false, restricted18: 'restricted18' in item && item.restricted18 } });
-    await tx.variant.upsert({ where: { sku: item.sku },
-      update: { productId: row.id, label: item.format, packDetails: 'Details pending', priceVnd: null, stock: 0, saleEnabled: false },
+    await tx.variant.upsert({ where: { sku: item.sku }, update: {},
       create: { productId: row.id, sku: item.sku, label: item.format, packDetails: 'Details pending', priceVnd: null, stock: 0, saleEnabled: false } });
   }
   const settings = await tx.storeSettings.findFirst();
-  if (settings) await tx.storeSettings.update({ where: { id: settings.id }, data: { salesEnabled: false, wineEnabled: false } });
-  else await tx.storeSettings.create({ data: { salesEnabled: false, wineEnabled: false } });
+  if (!settings) await tx.storeSettings.create({ data: { salesEnabled: false, wineEnabled: false } });
 }

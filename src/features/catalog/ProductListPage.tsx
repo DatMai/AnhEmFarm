@@ -15,20 +15,20 @@ const descriptions: Record<string, string> = {
 }
 
 export function ProductCard({ product }: { product: ProductSummary }) {
-  const demoPhoto = previewImage(product.slug)
+  const demoPhoto = previewImage(product.slug, product.confirmed)
   const photo = imageUrl(product.images[0]) ?? demoPhoto
-  const illustrative = Boolean(product.images[0]?.illustrative || demoPhoto)
+  const illustrative = Boolean(product.images[0]?.illustrative || (!product.images.length && demoPhoto))
   return <article className="product-card">
     <Link className="product-image" to={`/products/${encodeURIComponent(product.slug)}`}>
       {photo ? <img src={photo} alt={`${product.name}${illustrative ? ' — illustrative image' : ''}`} loading="lazy" /> : <div className="image-placeholder" aria-label="No product image available" />}
-      {illustrative && <span className="product-badge">{demoPhoto ? 'Preview listing' : 'Illustrative image'}</span>}
+      {illustrative && <span className="product-badge">{!product.images.length && demoPhoto ? 'Preview listing' : 'Illustrative image'}</span>}
     </Link>
     <div className="product-body">
       <span className="product-category">{product.category.name}</span>
       <Link className="product-name" to={`/products/${encodeURIComponent(product.slug)}`}>{product.name}</Link>
       <div className="product-bottom">
         <span className="product-price">{product.startingPriceVnd === null ? 'Price pending' : `From ${formatVnd(product.startingPriceVnd)}`}</span>
-        <span className="availability">{product.purchasable ? 'Available to order' : demoPhoto ? 'Details being confirmed' : 'Unavailable to order'}</span>
+        <span className="availability">{product.purchasable ? 'Available to order' : !product.confirmed ? 'Details being confirmed' : 'Unavailable to order'}</span>
       </div>
     </div>
   </article>

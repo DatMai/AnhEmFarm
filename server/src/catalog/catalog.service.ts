@@ -12,8 +12,8 @@ import type { productQuery, productCreate, productPatch, variantCreate, variantP
 export interface Page<T> { items: T[]; page: number; pageSize: number; total: number }
 export interface ProductSummary { id: string; slug: string; name: string; category: { id: string; slug: string; name: string };
   images: Array<{ id: string; objectKey: string; mime: string; width: number; height: number; illustrative: boolean }>;
-  startingPriceVnd: number | null; purchasable: boolean }
-export interface ProductDetail extends ProductSummary { description: string; confirmed: boolean; restricted18: boolean;
+  startingPriceVnd: number | null; purchasable: boolean; confirmed: boolean }
+export interface ProductDetail extends ProductSummary { description: string; restricted18: boolean;
   variants: Array<{ id: string; sku: string; label: string; packDetails: string; priceVnd: number | null; inStock: boolean; saleEnabled: boolean }> }
 
 export function canPurchase(product: { status: ProductStatus; confirmed: boolean; restricted18: boolean },
@@ -83,8 +83,8 @@ export class CatalogService {
     };
   }
   private summary(detail: ProductDetail): ProductSummary {
-    const { id, slug, name, category, images, startingPriceVnd, purchasable } = detail;
-    return { id, slug, name, category, images, startingPriceVnd, purchasable };
+    const { id, slug, name, category, images, startingPriceVnd, purchasable, confirmed } = detail;
+    return { id, slug, name, category, images, startingPriceVnd, purchasable, confirmed };
   }
   async list(query: z.infer<typeof productQuery>): Promise<Page<ProductSummary>> {
     const search = query.q?.trim();
