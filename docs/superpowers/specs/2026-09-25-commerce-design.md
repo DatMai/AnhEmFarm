@@ -1,6 +1,6 @@
 # AnhEmFarm — Commerce Website v1 Design Specification
 
-Status: advanced to implementation planning after the owner's request to continue following presentation of this English specification. This interpretation is recorded in the plan; the implementation plan and execution method still require review.
+Status: implemented in the local `main` checkout. The owner's continuation request advanced this English specification into planning; the plan records that interpretation rather than a separate quoted document approval. The 17-task implementation, subsequent demo preview, demo shopping fixture, and local Mailpit flow are documented in the plan, handoff, and dated verification records. Production launch remains gated by confirmed business data and external integrations.
 
 ## 1. Approved direction and goal
 

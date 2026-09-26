@@ -17,6 +17,10 @@ The owner approved React + Node.js/TypeScript + PostgreSQL, COD first, English-o
 
 ## Fresh verification
 
+The 2026-09-26 PR-preparation rerun on this checkout passed `npm run verify` (client/SSR/API builds, 17 frontend and 153 PostgreSQL backend tests), the final `npm run test:e2e` (23/23 Chromium cases), and root/server dependency audits (zero vulnerabilities at all severity levels). Two preceding full browser runs each had one failure caused by a stale Mailpit text expectation and an address-zone loading race in the test; the corrected focused suite passed 5/5 before the final full run. See `docs/superpowers/reviews/2026-09-26-pr-readiness.md` for the exact scope and limits. The repository currently has no Git remote configured, so a PR is pending the owner's repository URL and authenticated GitHub access.
+
+Earlier verification history follows.
+
 For the preview pass, `npm run verify` passed with 17 frontend and 152 backend tests; `npm run test:e2e` passed 21 browser cases. The development seed created ten browseable listings, and direct server-rendered navigation to a pending shipping page returned an explanatory HTTP 404 without a hydration exception. See the new review record for exact limits.
 
 On the main checkout after integration: `npm ci`, `npm --prefix server ci`, and `npm run verify` passed (client/SSR/API builds, 15 frontend tests, 149 PostgreSQL backend tests). The final worktree browser rerun passed 16/16 Playwright tests; a preceding run failed 3 cases because its local backend failed to start after a two-minute first-case timeout, and the isolated first case passed before the clean rerun. The main checkout's development API reported `/health/ready` 200 and its Vite `/products` page returned 200. The server and Vite development processes were started from the main checkout for preview. A local mocked backup/media drill retrieved and verified one independent media copy; real age encryption, remote S3 permissions and retention remain unverified.

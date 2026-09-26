@@ -151,7 +151,7 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
     await page.getByLabel('Email', { exact: true }).fill(email)
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.getByRole('button', { name: 'Create account' }).click()
-    await expect(page.getByRole('status')).toContainText('check your email')
+    await expect(page.getByRole('status')).toContainText('Mailpit')
     await control('email', email)
     const inbox = await (
       await request.get('http://127.0.0.1:8025/api/v1/messages')
@@ -276,6 +276,7 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
     await expect(page.getByText('Cancelled', { exact: true })).toBeVisible()
     await page.goto('/account/addresses')
     await page.getByRole('button', { name: 'Edit address', exact: true }).click()
+    await expect(page.getByLabel('Delivery zone')).toHaveValue(s.zone.id)
     await page.getByRole('button', { name: 'Save address' }).click()
     await expect(page.getByRole('heading', { name: 'Add address', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Log out' }).first().click()
