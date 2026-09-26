@@ -1,4 +1,7 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { randomInt } from 'node:crypto';
+import { performance } from 'node:perf_hooks';
+import { setTimeout as delay } from 'node:timers/promises';
 import { parseCookie, stringifySetCookie } from 'cookie';
 import type { Request, Response } from 'express';
 import { z } from 'zod';
@@ -44,19 +47,26 @@ export class IdentityController {
   @Post('resend-verification')
   @HttpCode(202)
   async resendVerification(@Body() body: unknown): Promise<{ status: string }> {
-    const input = parseBody(emailOnly, body);
-    const user = await this.db.user.findUnique({ where: { email: input.email } });
-    if (user) await this.tokens.issue(user.id, 'VERIFY');
+    await this.requestEmail(parseBody(emailOnly, body).email, 'VERIFY');
     return { status: 'accepted' };
   }
 
   @Post('forgot-password')
   @HttpCode(202)
   async forgotPassword(@Body() body: unknown): Promise<{ status: string }> {
-    const input = parseBody(emailOnly, body);
-    const user = await this.db.user.findUnique({ where: { email: input.email } });
-    if (user) await this.tokens.issue(user.id, 'RESET');
+    await this.requestEmail(parseBody(emailOnly, body).email, 'RESET');
     return { status: 'accepted' };
+  }
+
+  private async requestEmail(address: string, purpose: 'VERIFY' | 'RESET'): Promise<void> {
+    const started = performance.now();
+    const minimumMs = 200 + randomInt(41);
+    try {
+      const user = await this.db.user.findUnique({ where: { email: address } });
+      if (user) await this.tokens.issue(user.id, purpose);
+    } finally {
+      await delay(Math.max(0, minimumMs - (performance.now() - started)));
+    }
   }
 
   @Post('reset-password')

@@ -4,6 +4,8 @@ import { startHarness, type Harness } from './harness.js';
 import { TokenService } from '../src/identity/token.service.js';
 import { EmailWorker, RecordingEmailTransport } from '../src/email/email.worker.js';
 import { TEST_PASSWORD } from './fixtures.js';
+import { rateKey } from '../src/http/request-context.js';
+import { readConfig } from '../src/config.js';
 
 describe('account tokens', () => {
   let h: Harness;
@@ -12,11 +14,15 @@ describe('account tokens', () => {
   let transport: RecordingEmailTransport;
   beforeAll(async () => {
     h = await startHarness();
+    await h.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'emailIp', '127.0.0.1') } });
     tokens = h.resolve(TokenService);
     worker = h.resolve(EmailWorker);
     transport = h.resolve(RecordingEmailTransport);
   });
-  afterAll(async () => h?.close());
+  afterAll(async () => {
+    if (h) await h.db.rateBucket.deleteMany({ where: { key: rateKey(readConfig(), 'emailIp', '127.0.0.1') } });
+    await h?.close();
+  });
   const user = async () => h.db.user.create({ data: {
     email: `token-${randomUUID()}@example.test`, name: 'Token Test', passwordHash: '$argon2id$v=19$m=65536,t=3,p=1$invalid$invalid',
   } });
@@ -75,6 +81,23 @@ describe('account tokens', () => {
     for (let n = 0; n < 2; n++) expect((await client.request('POST', '/api/v1/auth/forgot-password', { email: absent })).status).toBe(202);
     expect((await client.request('POST', '/api/v1/auth/forgot-password', { email: absent })).status).toBe(429);
     expect((await client.request('POST', '/api/v1/auth/reset-password', { token: raw, password: 'New-password-2026!' })).status).toBe(204);
+  });
+
+  it('keeps both email request paths inside the same response timing floor', async () => {
+    const u = await user();
+    const client = h.client();
+    for (const path of ['/api/v1/auth/forgot-password', '/api/v1/auth/resend-verification']) {
+      const elapsed: number[] = [];
+      for (const address of [u.email, `missing-${randomUUID()}@example.test`]) {
+        const start = performance.now();
+        const result = await client.request('POST', path, { email: address });
+        elapsed.push(performance.now() - start);
+        expect(result).toMatchObject({ status: 202, body: { status: 'accepted' } });
+      }
+      expect(Math.min(...elapsed)).toBeGreaterThanOrEqual(150);
+      expect(Math.abs(elapsed[0] - elapsed[1])).toBeLessThan(120);
+    }
+    expect(await h.db.emailOutbox.count({ where: { recipient: u.email } })).toBe(2);
   });
 
   it('requires the current password to change it and removes existing sessions', async () => {

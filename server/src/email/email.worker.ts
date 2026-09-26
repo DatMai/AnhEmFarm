@@ -42,13 +42,14 @@ export class EmailWorker {
   constructor(private readonly db: PrismaService, private readonly outbox: OutboxService,
     @Inject(APP_CONFIG) private readonly config: AppConfig, @Inject(EMAIL_TRANSPORT) private readonly transport: EmailTransport) {}
 
-  async claim(now = new Date()): Promise<ClaimedJob[]> {
+  async claim(now = new Date(), limit = 20): Promise<ClaimedJob[]> {
+    const batchSize = Math.max(1, Math.min(20, Math.trunc(limit)));
     return this.db.$transaction(async tx => {
       const ids = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM email_outbox
         WHERE "sentAt" IS NULL AND "exhaustedAt" IS NULL AND "availableAt" <= ${now}
           AND ("leaseUntil" IS NULL OR "leaseUntil" < ${now})
-        ORDER BY "availableAt", id FOR UPDATE SKIP LOCKED LIMIT 20
+        ORDER BY "availableAt", id FOR UPDATE SKIP LOCKED LIMIT ${batchSize}
       `;
       const leaseUntil = new Date(now.getTime() + 120_000);
       const jobs: ClaimedJob[] = [];
@@ -106,19 +107,25 @@ export class EmailWorker {
     finally { clearInterval(timer); payload.token = ''; }
   }
 
-  async tick(now = new Date()): Promise<number> {
+  async tick(now?: Date): Promise<number> {
+    const sweepTime = now ?? new Date();
     await this.db.$executeRaw`
-      UPDATE email_outbox AS o SET payload = NULL, "exhaustedAt" = ${now}, "lastErrorCode" = 'TOKEN_UNUSABLE'
+      UPDATE email_outbox AS o SET payload = NULL, "exhaustedAt" = ${sweepTime}, "lastErrorCode" = 'TOKEN_UNUSABLE'
       WHERE o.payload IS NOT NULL AND o."dedupeKey" LIKE 'account-token:%'
         AND o."sentAt" IS NULL AND o."exhaustedAt" IS NULL
         AND EXISTS (
           SELECT 1 FROM account_tokens AS t
           WHERE o."dedupeKey" = 'account-token:' || t.id::text
-            AND (t."expiresAt" <= ${now} OR t."usedAt" IS NOT NULL)
+            AND (t."expiresAt" <= ${sweepTime} OR t."usedAt" IS NOT NULL)
         )
     `;
-    const jobs = await this.claim(now);
-    for (const job of jobs) await this.deliver(job);
-    return jobs.length;
+    let processed = 0;
+    while (processed < 20) {
+      const [job] = await this.claim(now ?? new Date(), 1);
+      if (!job) break;
+      await this.deliver(job);
+      processed++;
+    }
+    return processed;
   }
 }
