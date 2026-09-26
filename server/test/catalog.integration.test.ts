@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startHarness, type Harness } from './harness.js';
 import { seedScenario, type Scenario } from './fixtures.js';
-import { canPurchase } from '../src/catalog/catalog.service.js';
+import { canPurchase, CatalogService } from '../src/catalog/catalog.service.js';
 
 describe('catalog', () => {
   let h: Harness;
@@ -103,6 +103,83 @@ describe('catalog', () => {
     expect((await c.request('PATCH', `/api/v1/admin/variants/${variant.id}`, { expectedVersion: 1, stock: 9 })).status).toBe(422);
     expect((await c.request('PATCH', `/api/v1/admin/variants/${variant.id}`, { expectedVersion: 1, priceVnd: null })).status).toBe(200);
     expect((await h.db.variant.findUniqueOrThrow({ where: { id: variant.id } })).commercialVersion).toBe(2);
+  });
+  it('rechecks an admin inside the write transaction after suspension', async () => {
+    const service = h.resolve(CatalogService);
+    const admin = await h.db.user.findUniqueOrThrow({ where: { id: s.admin.id } });
+    const stale = await h.db.user.create({ data: { email: `stale-${tag}@example.test`, passwordHash: admin.passwordHash,
+      name: 'Stale Admin', role: 'ADMIN', status: 'SUSPENDED', authVersion: 2 } });
+    const actor = { id: stale.id, role: 'ADMIN' as const, authVersion: 1 };
+    const product = await h.db.product.findUniqueOrThrow({ where: { id: s.product.id } });
+    await expect(service.updateProduct(actor, product.id, { expectedVersion: product.version, name: 'Unauthorized edit' }))
+      .rejects.toMatchObject({ status: 401 });
+    expect((await h.db.product.findUniqueOrThrow({ where: { id: product.id } })).name).toBe(product.name);
+    expect(await h.db.auditLog.count({ where: { actorId: stale.id } })).toBe(0);
+  });
+  it('keeps a publication edit behind a checkout variant lock', async () => {
+    const c = await admin();
+    const product = await h.db.product.findUniqueOrThrow({ where: { id: s.product.id } });
+    let release!: () => void;
+    let locked!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const acquired = new Promise<void>(resolve => { locked = resolve; });
+    const checkout = h.db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM variants WHERE id = ${s.variant.id}::uuid FOR UPDATE`;
+      const variant = await tx.variant.findUniqueOrThrow({ where: { id: s.variant.id } });
+      expect(canPurchase(product, variant, { salesEnabled: true, wineEnabled: false })).toBe(true);
+      locked();
+      await gate;
+    });
+    await acquired;
+    let editSettled = false;
+    const edit = c.request('PATCH', `/api/v1/admin/products/${product.id}`, { expectedVersion: product.version, restricted18: true })
+      .then(result => { editSettled = true; return result; });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(editSettled).toBe(false);
+    } finally { release(); }
+    await checkout;
+    expect((await edit).status).toBe(200);
+    const fresh = await h.db.product.findUniqueOrThrow({ where: { id: product.id } });
+    expect(canPurchase(fresh, await h.db.variant.findUniqueOrThrow({ where: { id: s.variant.id } }),
+      { salesEnabled: true, wineEnabled: false })).toBe(false);
+  });
+  it('locks sibling variants before a commercial variant edit commits', async () => {
+    const c = await admin();
+    const category = await h.db.product.findUniqueOrThrow({ where: { id: s.product.id } });
+    const product = await h.db.product.create({ data: { categoryId: category.categoryId, slug: `siblings-${tag}`,
+      name: 'Sibling lock fixture', description: 'Test', status: 'PUBLISHED', confirmed: true } });
+    const variants = await Promise.all([1, 2].map(n => h.db.variant.create({ data: { productId: product.id,
+      sku: `SIBLING-${n}-${tag}`, label: `Pack ${n}`, packDetails: '250 g', priceVnd: 100000n, stock: 2, saleEnabled: true } })));
+    variants.sort((a, b) => a.id.localeCompare(b.id));
+    let release!: () => void;
+    let locked!: () => void;
+    const gate = new Promise<void>(resolve => { release = resolve; });
+    const acquired = new Promise<void>(resolve => { locked = resolve; });
+    const checkout = h.db.$transaction(async tx => {
+      await tx.$queryRaw`SELECT id FROM variants WHERE id = ${variants[1].id}::uuid FOR UPDATE`;
+      locked();
+      await gate;
+    });
+    await acquired;
+    let editSettled = false;
+    const edit = c.request('PATCH', `/api/v1/admin/variants/${variants[0].id}`, { expectedVersion: 1, priceVnd: 200000 })
+      .then(result => { editSettled = true; return result; });
+    try {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      expect(editSettled).toBe(false);
+    } finally { release(); }
+    await checkout;
+    expect((await edit).status).toBe(200);
+  });
+  it('does not display or sort on disabled cheap variants', async () => {
+    const product = await h.db.product.update({ where: { id: s.product.id }, data: { name: `Offer-${tag}` } });
+    await h.db.variant.create({ data: { productId: product.id, sku: `DISABLED-${tag}`, label: 'Hidden offer',
+      packDetails: '250 g', priceVnd: 1n, stock: 10, saleEnabled: false } });
+    const detail = await h.request('GET', `/api/v1/products/${product.slug}`);
+    expect(detail.body.startingPriceVnd).toBe(s.variant.priceVnd);
+    const list = await h.request('GET', `/api/v1/products?q=${encodeURIComponent(product.name)}&sort=price_asc`);
+    expect(list.body.items.find((item: any) => item.id === product.id).startingPriceVnd).toBe(s.variant.priceVnd);
   });
   it('centralizes eligibility for confirmed, price, pack, stock, sale, settings and wine', async () => {
     const product = { status: 'PUBLISHED' as const, confirmed: true, restricted18: false };

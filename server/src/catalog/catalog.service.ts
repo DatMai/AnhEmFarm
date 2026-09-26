@@ -1,8 +1,10 @@
-import { ConflictException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable, NotFoundException, UnprocessableEntityException } from '@nestjs/common';
 import { Prisma, type ProductStatus } from '../generated/prisma/client.js';
 import { PrismaService } from '../db/prisma.service.js';
 import { withTransaction } from '../db/transaction.js';
 import { AuditService } from '../admin/audit.service.js';
+import { IdentityService } from '../identity/identity.service.js';
+import type { Actor } from '../identity/session.service.js';
 import type { z } from 'zod';
 import type { productQuery, productCreate, productPatch, variantCreate, variantPatch, categoryCreate, categoryPatch, adminListQuery } from './catalog.schemas.js';
 
@@ -40,11 +42,23 @@ const missing = (): never => { throw new NotFoundException({ code: 'NOT_FOUND' }
 
 @Injectable()
 export class CatalogService {
-  constructor(private readonly db: PrismaService, private readonly audit: AuditService) {}
+  constructor(private readonly db: PrismaService, private readonly audit: AuditService,
+    private readonly identity: IdentityService) {}
+  private async assertAdmin(tx: Prisma.TransactionClient, actor: Actor): Promise<void> {
+    await this.identity.assertActiveActor(tx, actor);
+    const user = await tx.user.findUnique({ where: { id: actor.id }, select: { role: true } });
+    if (user?.role !== 'ADMIN') throw new ForbiddenException();
+  }
+  private async lockProductVariants(tx: Prisma.TransactionClient, productId: string): Promise<void> {
+    await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
+    await tx.$queryRaw`SELECT id FROM variants WHERE "productId" = ${productId}::uuid ORDER BY id FOR UPDATE`;
+  }
   private async settings() { return (await this.db.storeSettings.findFirst()) ?? { salesEnabled: false, wineEnabled: false }; }
   private serialize(product: LoadedProduct, settings: { salesEnabled: boolean; wineEnabled: boolean }): ProductDetail {
     const sale = product.variants.filter(variant => canPurchase(product, variant, settings));
-    const prices = product.variants.map(variant => variant.priceVnd).filter((price): price is bigint => price !== null);
+    const prices = product.variants.filter(variant => product.confirmed && variant.saleEnabled &&
+      variant.priceVnd !== null && variant.priceVnd > 0n && variant.packDetails.trim().length > 0 && variant.stock > 0)
+      .map(variant => variant.priceVnd!);
     return {
       id: product.id, slug: product.slug, name: product.name,
       category: { id: product.category.id, slug: product.category.slug, name: product.category.name },
@@ -71,8 +85,8 @@ export class CatalogService {
     const where = Prisma.join(conditions, ' AND ');
     const order: Record<string, Prisma.Sql> = {
       name: Prisma.sql`p.name ASC, p.id ASC`,
-      price_asc: Prisma.sql`MIN(v."priceVnd") ASC NULLS LAST, p.id ASC`,
-      price_desc: Prisma.sql`MIN(v."priceVnd") DESC NULLS LAST, p.id ASC`,
+      price_asc: Prisma.sql`MIN(v."priceVnd") FILTER (WHERE p.confirmed AND v."saleEnabled" AND v.stock > 0 AND v."priceVnd" > 0 AND length(trim(v."packDetails")) > 0) ASC NULLS LAST, p.id ASC`,
+      price_desc: Prisma.sql`MIN(v."priceVnd") FILTER (WHERE p.confirmed AND v."saleEnabled" AND v.stock > 0 AND v."priceVnd" > 0 AND length(trim(v."packDetails")) > 0) DESC NULLS LAST, p.id ASC`,
       newest: Prisma.sql`p."createdAt" DESC, p.id ASC`,
     };
     const rows = await this.db.$queryRaw<Array<{ id: string; total: bigint }>>(Prisma.sql`
@@ -135,22 +149,24 @@ export class CatalogService {
     if (!product) return missing();
     return this.adminSerialize(product, await this.settings());
   }
-  async createCategory(actorId: string, input: z.infer<typeof categoryCreate>) {
+  async createCategory(actor: Actor, input: z.infer<typeof categoryCreate>) {
     try { return await withTransaction(this.db, async tx => {
+      await this.assertAdmin(tx, actor);
       const created = await tx.category.create({ data: input });
-      await this.audit.record(tx, { actorId, action: 'CATEGORY_CREATED', targetType: 'Category', targetId: created.id, changes: input });
+      await this.audit.record(tx, { actorId: actor.id, action: 'CATEGORY_CREATED', targetType: 'Category', targetId: created.id, changes: input });
       return created;
     }); } catch (error) { return uniqueConflict(error); }
   }
-  async updateCategory(actorId: string, id: string, input: z.infer<typeof categoryPatch>) {
+  async updateCategory(actor: Actor, id: string, input: z.infer<typeof categoryPatch>) {
     try { return await withTransaction(this.db, async tx => {
+      await this.assertAdmin(tx, actor);
       await tx.$queryRaw`SELECT id FROM categories WHERE id = ${id}::uuid FOR UPDATE`;
       const previous = await tx.category.findUnique({ where: { id } });
       if (!previous) return missing();
       if (previous.version !== input.expectedVersion) return versionConflict();
       const { expectedVersion, ...changes } = input;
       const updated = await tx.category.update({ where: { id }, data: { ...changes, version: { increment: 1 } } });
-      await this.audit.record(tx, { actorId, action: 'CATEGORY_UPDATED', targetType: 'Category', targetId: id, changes });
+      await this.audit.record(tx, { actorId: actor.id, action: 'CATEGORY_UPDATED', targetType: 'Category', targetId: id, changes });
       return updated;
     }); } catch (error) { return uniqueConflict(error); }
   }
@@ -161,19 +177,21 @@ export class CatalogService {
       throw new UnprocessableEntityException({ code: 'PUBLISH_VALIDATION_FAILED' });
     }
   }
-  async createProduct(actorId: string, input: z.infer<typeof productCreate>) {
+  async createProduct(actor: Actor, input: z.infer<typeof productCreate>) {
     try { return await withTransaction(this.db, async tx => {
+      await this.assertAdmin(tx, actor);
       const category = await tx.category.findUnique({ where: { id: input.categoryId } });
       if (!category) throw new UnprocessableEntityException({ code: 'INVALID_CATEGORY' });
       const created = await tx.product.create({ data: input });
       await this.validatePublication(tx, created);
-      await this.audit.record(tx, { actorId, action: 'PRODUCT_CREATED', targetType: 'Product', targetId: created.id, changes: input });
+      await this.audit.record(tx, { actorId: actor.id, action: 'PRODUCT_CREATED', targetType: 'Product', targetId: created.id, changes: input });
       return created;
     }); } catch (error) { return uniqueConflict(error); }
   }
-  async updateProduct(actorId: string, id: string, input: z.infer<typeof productPatch>) {
+  async updateProduct(actor: Actor, id: string, input: z.infer<typeof productPatch>) {
     try { return await withTransaction(this.db, async tx => {
-      await tx.$queryRaw`SELECT id FROM products WHERE id = ${id}::uuid FOR UPDATE`;
+      await this.assertAdmin(tx, actor);
+      await this.lockProductVariants(tx, id);
       const previous = await tx.product.findUnique({ where: { id } });
       if (!previous) return missing();
       if (previous.version !== input.expectedVersion) return versionConflict();
@@ -183,16 +201,17 @@ export class CatalogService {
       const proposed = { ...previous, ...changes };
       await this.validatePublication(tx, proposed);
       const updated = await tx.product.update({ where: { id }, data: { ...changes, version: { increment: 1 } } });
-      await this.audit.record(tx, { actorId, action: 'PRODUCT_UPDATED', targetType: 'Product', targetId: id, changes });
+      await this.audit.record(tx, { actorId: actor.id, action: 'PRODUCT_UPDATED', targetType: 'Product', targetId: id, changes });
       return updated;
     }); } catch (error) { return uniqueConflict(error); }
   }
-  async createVariant(actorId: string, productId: string, input: z.infer<typeof variantCreate>) {
+  async createVariant(actor: Actor, productId: string, input: z.infer<typeof variantCreate>) {
     try { return await withTransaction(this.db, async tx => {
-      await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
+      await this.assertAdmin(tx, actor);
+      await this.lockProductVariants(tx, productId);
       if (!(await tx.product.findUnique({ where: { id: productId } }))) return missing();
       const variant = await tx.variant.create({ data: { ...input, priceVnd: input.priceVnd === null ? null : BigInt(input.priceVnd), productId } });
-      await this.audit.record(tx, { actorId, action: 'VARIANT_CREATED', targetType: 'Variant', targetId: variant.id, changes: input });
+      await this.audit.record(tx, { actorId: actor.id, action: 'VARIANT_CREATED', targetType: 'Variant', targetId: variant.id, changes: input });
       return this.variantResponse(variant);
     }); } catch (error) { return uniqueConflict(error); }
   }
@@ -200,9 +219,12 @@ export class CatalogService {
     priceVnd: bigint | null; stock: number; saleEnabled: boolean; version: number; commercialVersion: number }) {
     return { ...variant, priceVnd: safeNumber(variant.priceVnd) };
   }
-  async updateVariant(actorId: string, id: string, input: z.infer<typeof variantPatch>) {
+  async updateVariant(actor: Actor, id: string, input: z.infer<typeof variantPatch>) {
     try { return await withTransaction(this.db, async tx => {
-      await tx.$queryRaw`SELECT id FROM variants WHERE id = ${id}::uuid FOR UPDATE`;
+      await this.assertAdmin(tx, actor);
+      const target = await tx.variant.findUnique({ where: { id }, select: { productId: true } });
+      if (!target) return missing();
+      await this.lockProductVariants(tx, target.productId);
       const previous = await tx.variant.findUnique({ where: { id } });
       if (!previous) return missing();
       if (previous.version !== input.expectedVersion) return versionConflict();
@@ -211,7 +233,7 @@ export class CatalogService {
       const updated = await tx.variant.update({ where: { id }, data: { ...changes,
         priceVnd: changes.priceVnd === undefined ? undefined : changes.priceVnd === null ? null : BigInt(changes.priceVnd),
         version: { increment: 1 }, ...(commercial ? { commercialVersion: { increment: 1 } } : {}) } });
-      await this.audit.record(tx, { actorId, action: 'VARIANT_UPDATED', targetType: 'Variant', targetId: id, changes });
+      await this.audit.record(tx, { actorId: actor.id, action: 'VARIANT_UPDATED', targetType: 'Variant', targetId: id, changes });
       return this.variantResponse(updated);
     }); } catch (error) { return uniqueConflict(error); }
   }
