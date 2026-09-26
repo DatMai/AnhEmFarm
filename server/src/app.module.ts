@@ -1,3 +1,6 @@
+import { OrdersController } from './orders/orders.controller.js';
+import { AdminOrdersController } from './orders/admin-orders.controller.js';
+import { OrdersService } from './orders/orders.service.js';
 import { Global, Module, type DynamicModule } from '@nestjs/common';
 import { HealthController } from './health.controller.js';
 import { APP_CONFIG, type AppConfig } from './config.js';
@@ -20,8 +23,8 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
-      controllers: [HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController],
-      providers: [{ provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService],
+      controllers: [HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
+      providers: [{ provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }

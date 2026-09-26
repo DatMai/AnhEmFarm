@@ -127,7 +127,10 @@ describe('atomic COD placement', () => {
   it('delivers an English COD receipt through the existing outbox worker', async () => {
     const s = await seedScenario(h.db); const q = await quote(s);
     const placed = await h.resolve(CheckoutService).place(actor(s.customer.id), q.id, randomUUID());
-    for (let i = 0; i < 5; i++) await h.resolve(EmailWorker).tick();
+    // The persistent test database may contain receipts from other suites. Make
+    // this fixture eligible first, so delivery does not depend on queue length.
+    await h.db.emailOutbox.update({ where: { dedupeKey: `order-created:${placed.order.id}` }, data: { availableAt: new Date(0) } });
+    await h.resolve(EmailWorker).tick();
     const sent = h.resolve(RecordingEmailTransport).messages.find(m => m.to === s.customer.email);
     expect(sent?.subject).toBe('Your AnhEmFarm order was placed');
     expect(sent?.text).toContain(placed.order.id);

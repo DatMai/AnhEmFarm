@@ -26,9 +26,14 @@ describe('account tokens', () => {
   const user = async () => h.db.user.create({ data: {
     email: `token-${randomUUID()}@example.test`, name: 'Token Test', passwordHash: '$argon2id$v=19$m=65536,t=3,p=1$invalid$invalid',
   } });
-  const deliveredToken = async (purpose: 'VERIFY' | 'RESET') => {
+  const deliveredToken = async (purpose: 'VERIFY' | 'RESET', recipient: string) => {
+    const job = await h.db.emailOutbox.findFirstOrThrow({ where: { recipient, template: purpose, sentAt: null, exhaustedAt: null }, orderBy: { createdAt: 'desc' } });
+    // Other suites leave valid pending mail in this persistent integration DB.
+    await h.db.emailOutbox.update({ where: { id: job.id }, data: { availableAt: new Date(0) } });
+    const before = transport.messages.length;
     await worker.tick();
-    const message = transport.messages.at(-1)!;
+    expect((await h.db.emailOutbox.findUniqueOrThrow({ where: { id: job.id } })).sentAt).not.toBeNull();
+    const message = transport.messages.slice(before).find(message => message.to === recipient)!;
     const url = new URL(message.text.match(/https?:\/\/\S+/)![0]);
     expect(url.pathname).toBe(purpose === 'VERIFY' ? '/verify-email' : '/reset-password');
     return url.searchParams.get('token')!;
@@ -37,9 +42,9 @@ describe('account tokens', () => {
   it('issues encrypted verification mail; new issue invalidates old, consumed token is single-use', async () => {
     const u = await user();
     await tokens.issue(u.id, 'VERIFY');
-    const first = await deliveredToken('VERIFY');
+    const first = await deliveredToken('VERIFY', u.email);
     await tokens.issue(u.id, 'VERIFY');
-    const second = await deliveredToken('VERIFY');
+    const second = await deliveredToken('VERIFY', u.email);
     expect(first).not.toBe(second);
     await expect(tokens.consume(first, 'VERIFY')).rejects.toThrow();
     await tokens.consume(second, 'VERIFY');
@@ -52,11 +57,11 @@ describe('account tokens', () => {
   it('rejects expired tokens and allows one concurrent reset, revoking sessions', async () => {
     const u = await user();
     await tokens.issue(u.id, 'RESET');
-    const expired = await deliveredToken('RESET');
+    const expired = await deliveredToken('RESET', u.email);
     await h.db.accountToken.updateMany({ where: { userId: u.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
     await expect(tokens.consume(expired, 'RESET', 'Changed-password-2026!')).rejects.toThrow();
     await tokens.issue(u.id, 'RESET');
-    const raw = await deliveredToken('RESET');
+    const raw = await deliveredToken('RESET', u.email);
     await h.db.session.create({ data: { userId: u.id, digest: randomUUID(), csrfDigest: randomUUID(), expiresAt: new Date(Date.now() + 100000), authVersion: u.authVersion } });
     const results = await Promise.allSettled([
       tokens.consume(raw, 'RESET', 'Changed-password-2026!'),
@@ -76,7 +81,7 @@ describe('account tokens', () => {
     const missing = await client.request('POST', '/api/v1/auth/forgot-password', { email: absent });
     expect(forgotten).toMatchObject({ status: 202, body: { status: 'accepted' } });
     expect(missing).toMatchObject({ status: 202, body: { status: 'accepted' } });
-    const raw = await deliveredToken('RESET');
+    const raw = await deliveredToken('RESET', u.email);
     expect((await client.request('GET', `/api/v1/auth/reset-password?token=${raw}`)).status).toBe(404);
     for (let n = 0; n < 2; n++) expect((await client.request('POST', '/api/v1/auth/forgot-password', { email: absent })).status).toBe(202);
     expect((await client.request('POST', '/api/v1/auth/forgot-password', { email: absent })).status).toBe(429);
