@@ -5,6 +5,7 @@ import { PrismaService } from './db/prisma.service.js';
 import { CsrfController, CsrfGuard } from './identity/csrf.guard.js';
 import { RateLimitService } from './identity/rate-limit.service.js';
 import { IdentityModule } from './identity/identity.module.js';
+import { CatalogModule } from './catalog/catalog.module.js';
 
 @Global()
 @Module({})
@@ -12,7 +13,7 @@ export class AppModule {
   static register(config: AppConfig): DynamicModule {
     return {
       module: AppModule,
-      imports: [IdentityModule],
+      imports: [IdentityModule, CatalogModule],
       controllers: [HealthController, CsrfController],
       providers: [{ provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
