@@ -14,7 +14,7 @@ export function CustomerDetailPage() {
     catch { setMessage('Could not change status. Reload and review the customer.'); setRefresh(x => x + 1) }
     finally { setBusy(false) }
   }
-  return <div><Link to="/admin/customers">← Customers</Link><h2>Customer details</h2><ErrorMessage message={loadError} />
+  return <div><Link className="back-link" to="/admin/customers">Customers</Link><h2>Customer details</h2><ErrorMessage message={loadError} />
     {!data && !loadError && <p role="status">Loading customer…</p>}
     {data && <><h3>{data.customer.name}</h3><p>{data.customer.email} · {data.customer.status}</p>
       <label className="admin-label">Reason for status change <textarea value={reason} onChange={e => setReason(e.target.value)} maxLength={500} /></label>

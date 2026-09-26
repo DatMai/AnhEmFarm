@@ -1,6 +1,6 @@
 # AnhEmFarm handoff
 
-Updated: 2026-09-26.
+Updated: 2026-09-27.
 
 ## Current state
 
@@ -11,15 +11,19 @@ The local shopping verification record is `docs/superpowers/reviews/2026-09-26-d
 
 The follow-up public preview pass added ten explicitly seeded local/test product concepts across mulberries, coffee, provisional tea and honey, with category browsing, useful detail pages, related products and complete pending states for unpublished public information pages. It stays non-saleable until a seller confirms actual data and launch prerequisites. The seed requires `ALLOW_DEMO_SEED=true`, rejects production mode and databases outside `_dev`/`_test`, and preserves seller edits on reruns. Implementation and review evidence are in `docs/superpowers/reviews/2026-09-26-demo-content-verification.md`.
 
-The 17-task commerce implementation is integrated into the owner's `main` checkout at `/Users/daemonthetarnished/Me/code/AnhEmFarm`. It includes a React/Vite storefront and seller UI, server-rendered public HTML, a NestJS/Prisma/PostgreSQL API, account registration and verification, sessions, server-authorized administration, catalog/inventory, COD quotes and orders, fulfillment, reports, approved content, SMTP outbox, media storage, deployment and recovery scripts. Production sales are deliberately disabled until real catalog, policy, business, shipping and integration inputs are configured. No live order, payment or external service is claimed.
+The 17-task commerce implementation is merged into repository `main` at `4200038`. It includes a React/Vite storefront and seller UI, server-rendered public HTML, a NestJS/Prisma/PostgreSQL API, account registration and verification, sessions, server-authorized administration, catalog/inventory, COD quotes and orders, fulfillment, reports, approved content, SMTP outbox, media storage, deployment and recovery scripts. Production sales are deliberately disabled until real catalog, policy, business, shipping and integration inputs are configured. No live order, payment or external service is claimed.
 
 The owner approved React + Node.js/TypeScript + PostgreSQL, COD first, English-only app and repository text, and the original obra/superpowers workflow. Django was explicitly rejected. The approved design is `docs/superpowers/specs/2026-09-25-commerce-design.md`; the implementation plan is `docs/superpowers/plans/2026-09-25-commerce.md`. Tasks 1–14 used the approved subagent method; the owner then requested inline work using GPT-6-sol or below. Tasks 15–17 and the final fix pass were inline. A single read-only GPT-6-sol whole-branch review found six Important and one Minor issue; all were addressed before integration. Details and verification limits are in `docs/superpowers/reviews/2026-09-25-commerce-verification.md`. Historical execution evidence is in `.superpowers/sdd/2026-09-25-commerce/progress.md` when that ignored local directory is present.
 
 ## Fresh verification
 
-The 2026-09-26 PR-preparation rerun on this checkout passed `npm run verify` (client/SSR/API builds, 17 frontend and 153 PostgreSQL backend tests), the final `npm run test:e2e` (23/23 Chromium cases), and root/server dependency audits (zero vulnerabilities at all severity levels). Two preceding full browser runs each had one failure caused by a stale Mailpit text expectation and an address-zone loading race in the test; the corrected focused suite passed 5/5 before the final full run. See `docs/superpowers/reviews/2026-09-26-pr-readiness.md` for the exact scope and limits. GitHub [PR #2](https://github.com/DatMai/AnhEmFarm/pull/2) is the review branch from `feat/commerce-platform-cod` into `main`, replacing PR #1 at the owner's request. The remote `main` branch contains only the original prototype commit `afa0b56` until the owner merges the PR.
+The 2026-09-26 PR-preparation rerun passed `npm run verify` (client/SSR/API builds, 17 frontend and 153 PostgreSQL backend tests), the final `npm run test:e2e` (23/23 Chromium cases), and root/server dependency audits (zero vulnerabilities at all severity levels). Two preceding full browser runs each had one failure caused by a stale Mailpit text expectation and an address-zone loading race in the test; the corrected focused suite passed 5/5 before the final full run. See `docs/superpowers/reviews/2026-09-26-pr-readiness.md` for the exact scope and limits. GitHub [PR #2](https://github.com/DatMai/AnhEmFarm/pull/2) was merged into `main` at `4200038`; it replaced PR #1 at the owner's request.
 
 The first GitHub CI runs on PR #1 failed three media integration cases because those tests hard-coded port 5173 while CI configured `APP_ORIGIN` on port 4278. A local RED run reproduced the three 403 failures; using the harness's configured origin produced 9/9 focused passes, a full 17/153 `verify` pass and a 23/23 E2E pass under CI's origin. Both GitHub `verify` checks (push and pull request) completed successfully on fix commit `5438612`. See the CI origin correction in `docs/superpowers/reviews/2026-09-26-pr-readiness.md`.
+
+## UI polish follow-up — 2026-09-27
+
+The owner approved removing decorative arrow icons and adding restrained motion for navigation, dialogs, toasts, and button feedback. The change is on `feat/ui-motion-polish`, based on merged `main` commit `4200038`. Functional icons remain, and `prefers-reduced-motion` is honored. `npm ci` and `npm run build` passed in the feature worktree; tests were not run for this UI-only pass. GitHub [PR #3](https://github.com/DatMai/AnhEmFarm/pull/3) is open into `main` for owner review and is not merged.
 
 Earlier verification history follows.
 

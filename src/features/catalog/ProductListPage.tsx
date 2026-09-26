@@ -60,7 +60,7 @@ export function ProductListPage() {
         <span className="section-kicker">{categoryName ? 'EXPLORE THE RANGE' : 'PRODUCT CATALOG'}</span>
         <h1>{heading}</h1>
         <p>{categoryName ? descriptions[category] ?? `Browse ${categoryName} listings.` : 'Explore product listings by range. Preview details and availability are clearly marked.'}</p>
-        {categoryName && <Link className="catalog-back-link" to="/products">← All products</Link>}
+        {categoryName && <Link className="catalog-back-link" to="/products">All products</Link>}
       </div>
       {query.data && <span className="result-count">{query.data.total} products</span>}
     </div>
