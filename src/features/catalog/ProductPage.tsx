@@ -88,7 +88,7 @@ export function ProductPage() {
   return (
     <section className="container section detail-section">
       <Link className="back-link" to="/products">
-        ← All products
+        All products
       </Link>
       <div className="detail-grid">
         <div className="detail-image">
@@ -156,10 +156,10 @@ export function ProductPage() {
           ) : (
             <p>Formats, sizes, and pricing will be added when confirmed.</p>
           )}
-          {!product.purchasable && <Link className="detail-secondary-link" to="/products">Explore other products →</Link>}
+          {!product.purchasable && <Link className="detail-secondary-link" to="/products">Explore other products</Link>}
         </div>
       </div>
-      {relatedItems.length > 0 && <div className="related-products"><div className="section-heading"><div><span className="section-kicker">CONTINUE EXPLORING</span><h2>More from {product.category.name}</h2></div><Link className="section-link" to={`/products?category=${encodeURIComponent(product.category.slug)}`}>View range →</Link></div><div className="product-grid">{relatedItems.map(item => <ProductCard key={item.id} product={item} />)}</div></div>}
+      {relatedItems.length > 0 && <div className="related-products"><div className="section-heading"><div><span className="section-kicker">CONTINUE EXPLORING</span><h2>More from {product.category.name}</h2></div><Link className="section-link" to={`/products?category=${encodeURIComponent(product.category.slug)}`}>View range</Link></div><div className="product-grid">{relatedItems.map(item => <ProductCard key={item.id} product={item} />)}</div></div>}
     </section>
   )
 }

@@ -1,18 +1,177 @@
 import { useQuery } from '@tanstack/react-query'
-import { ArrowRight, Check, Leaf } from 'lucide-react'
+import { Check, Leaf } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { PageState } from '../../components/PageState'
 import { api } from '../../lib/api'
 import { publicKey } from '../../lib/query-client'
-import { PageState } from '../../components/PageState'
 import { ProductCard } from './ProductListPage'
 import type { Page, ProductSummary } from './types'
+
 export function HomePage() {
-  const catalog = useQuery({ queryKey: publicKey('home-products'), queryFn: ({ signal }) => api<Page<ProductSummary>>('/products?pageSize=12', { signal }) })
+  const catalog = useQuery({
+    queryKey: publicKey('home-products'),
+    queryFn: ({ signal }) =>
+      api<Page<ProductSummary>>('/products?pageSize=12', { signal }),
+  })
   const products = catalog.data?.items ?? []
-  const picks = ['mulberries', 'coffee', 'tea', 'honey'].flatMap(slug => {
-    const match = products.find(product => product.category.slug === slug)
+  const picks = ['mulberries', 'coffee', 'tea', 'honey'].flatMap((slug) => {
+    const match = products.find((product) => product.category.slug === slug)
     return match ? [match] : []
   })
-  const featured = [...picks, ...products.filter(product => !picks.some(pick => pick.id === product.id))].slice(0, 4)
-  return <><section className="hero" aria-labelledby="hero-title"><div className="hero-image" role="img" aria-label="Illustrative image of fresh mulberries in a bowl" /><div className="hero-wash" /><div className="container hero-content"><span className="eyebrow"><span className="eyebrow-line" /> FROM FARM TO TABLE</span><h1 id="hero-title">Simple ingredients,<br /><em>more to enjoy.</em></h1><p>Mulberries, coffee, and everyday farm flavors gathered in one place.</p><div className="hero-actions"><Link className="button button-primary" to="/products">Explore products <ArrowRight size={18} /></Link><Link className="text-link" to="/products?category=mulberries">Explore mulberries <ArrowRight size={16} /></Link></div></div><div className="hero-caption"><span className="caption-dot" /> ILLUSTRATIVE IMAGE</div></section><div className="trust-strip"><div className="container trust-inner"><span><Leaf size={19} /> Clear categories</span><i /><span><Check size={19} /> Clear product details</span></div></div><section className="section categories-section container"><div className="section-heading"><div><span className="section-kicker">EXPLORE ANHEMFARM</span><h2>Explore our ranges</h2><p>Explore mulberries, coffee, and proposed tea and honey ranges. Check each listing for availability.</p></div><Link className="section-link" to="/products">View all products <ArrowRight size={18} /></Link></div><div className="category-grid"><Link className="category-card" to="/products?category=mulberries"><img src="/images/mulberry-hero.jpg" alt="Illustrative mulberry photo" /><span className="category-shade" /><span className="category-info"><small>EXPLORE</small><strong>Mulberries</strong></span></Link><Link className="category-card" to="/products?category=coffee"><img src="/images/coffee.jpg" alt="Illustrative coffee photo" /><span className="category-shade" /><span className="category-info"><small>EXPLORE</small><strong>Coffee</strong></span></Link><Link className="category-card" to="/products?category=tea"><img src="/images/tea.jpg" alt="Illustrative tea photo" /><span className="category-shade" /><span className="category-info"><small>PROPOSED RANGE</small><strong>Tea</strong></span></Link><Link className="category-card" to="/products?category=honey"><img src="/images/honey.jpg" alt="Illustrative honey photo" /><span className="category-shade" /><span className="category-info"><small>PROPOSED RANGE</small><strong>Honey</strong></span></Link></div></section><section className="section products-section container"><div className="section-heading"><div><span className="section-kicker">PRODUCT CATALOG</span><h2>Browse products</h2><p>Explore each listing for more details. Check each listing for current ordering status.</p></div><Link className="section-link" to="/products">View all products <ArrowRight size={18} /></Link></div>{catalog.isPending ? <PageState title="Loading products" /> : catalog.isError ? <PageState title="Products are unavailable">Please try again later.</PageState> : featured.length ? <div className="product-grid">{featured.map(product => <ProductCard key={product.id} product={product} />)}</div> : <PageState title="No products published yet">Please check back later.</PageState>}</section><section className="about-section"><div className="container about-inner"><div><span className="section-kicker">OUR STORY</span><h2>Good food starts with<br /><em>care.</em></h2></div><div><p>AnhEmFarm is building a simple place to explore farm products. Product details will appear as they are confirmed.</p><Link to="/products" className="button button-light">View products <ArrowRight size={18} /></Link></div></div></section></>
+  const featured = [
+    ...picks,
+    ...products.filter((product) => !picks.some((pick) => pick.id === product.id)),
+  ].slice(0, 4)
+
+  return (
+    <>
+      <section className="hero" aria-labelledby="hero-title">
+        <div
+          className="hero-image"
+          role="img"
+          aria-label="Illustrative image of fresh mulberries in a bowl"
+        />
+        <div className="hero-wash" />
+        <div className="container hero-content">
+          <span className="eyebrow">
+            <span className="eyebrow-line" /> FROM FARM TO TABLE
+          </span>
+          <h1 id="hero-title">
+            Simple ingredients,
+            <br />
+            <em>more to enjoy.</em>
+          </h1>
+          <p>Mulberries, coffee, and everyday farm flavors gathered in one place.</p>
+          <div className="hero-actions">
+            <Link className="button button-primary" to="/products">
+              Explore products
+            </Link>
+            <Link className="text-link" to="/products?category=mulberries">
+              Explore mulberries
+            </Link>
+          </div>
+        </div>
+        <div className="hero-caption">
+          <span className="caption-dot" /> ILLUSTRATIVE IMAGE
+        </div>
+      </section>
+
+      <div className="trust-strip">
+        <div className="container trust-inner">
+          <span>
+            <Leaf size={19} /> Clear categories
+          </span>
+          <i />
+          <span>
+            <Check size={19} /> Clear product details
+          </span>
+        </div>
+      </div>
+
+      <section className="section categories-section container">
+        <div className="section-heading">
+          <div>
+            <span className="section-kicker">EXPLORE ANHEMFARM</span>
+            <h2>Explore our ranges</h2>
+            <p>
+              Explore mulberries, coffee, and proposed tea and honey ranges. Check each
+              listing for availability.
+            </p>
+          </div>
+          <Link className="section-link" to="/products">
+            View all products
+          </Link>
+        </div>
+        <div className="category-grid">
+          <Link className="category-card" to="/products?category=mulberries">
+            <img src="/images/mulberry-hero.jpg" alt="Illustrative mulberry photo" />
+            <span className="category-shade" />
+            <span className="category-info">
+              <small>EXPLORE</small>
+              <strong>Mulberries</strong>
+            </span>
+          </Link>
+          <Link className="category-card" to="/products?category=coffee">
+            <img src="/images/coffee.jpg" alt="Illustrative coffee photo" />
+            <span className="category-shade" />
+            <span className="category-info">
+              <small>EXPLORE</small>
+              <strong>Coffee</strong>
+            </span>
+          </Link>
+          <Link className="category-card" to="/products?category=tea">
+            <img src="/images/tea.jpg" alt="Illustrative tea photo" />
+            <span className="category-shade" />
+            <span className="category-info">
+              <small>PROPOSED RANGE</small>
+              <strong>Tea</strong>
+            </span>
+          </Link>
+          <Link className="category-card" to="/products?category=honey">
+            <img src="/images/honey.jpg" alt="Illustrative honey photo" />
+            <span className="category-shade" />
+            <span className="category-info">
+              <small>PROPOSED RANGE</small>
+              <strong>Honey</strong>
+            </span>
+          </Link>
+        </div>
+      </section>
+
+      <section className="section products-section container">
+        <div className="section-heading">
+          <div>
+            <span className="section-kicker">PRODUCT CATALOG</span>
+            <h2>Browse products</h2>
+            <p>
+              Explore each listing for more details. Check each listing for current
+              ordering status.
+            </p>
+          </div>
+          <Link className="section-link" to="/products">
+            View all products
+          </Link>
+        </div>
+        {catalog.isPending ? (
+          <PageState title="Loading products" />
+        ) : catalog.isError ? (
+          <PageState title="Products are unavailable">
+            Please try again later.
+          </PageState>
+        ) : featured.length ? (
+          <div className="product-grid">
+            {featured.map((product) => (
+              <ProductCard key={product.id} product={product} />
+            ))}
+          </div>
+        ) : (
+          <PageState title="No products published yet">
+            Please check back later.
+          </PageState>
+        )}
+      </section>
+
+      <section className="about-section">
+        <div className="container about-inner">
+          <div>
+            <span className="section-kicker">OUR STORY</span>
+            <h2>
+              Good food starts with
+              <br />
+              <em>care.</em>
+            </h2>
+          </div>
+          <div>
+            <p>
+              AnhEmFarm is building a simple place to explore farm products. Product
+              details will appear as they are confirmed.
+            </p>
+            <Link to="/products" className="button button-light">
+              View products
+            </Link>
+          </div>
+        </div>
+      </section>
+    </>
+  )
 }

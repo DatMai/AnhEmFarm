@@ -49,7 +49,7 @@ All order status and stock changes pass through business services. Controllers a
 
 Guests may browse and build a device-local cart. Checkout requires an active account and verified email. After login, merge a guest cart once using a request key so a refresh cannot add items again. Logout removes account data from frontend memory; a server cart remains attached only to its owner.
 
-Every page has loading, empty, error, and success states as applicable. Filters appear in the URL. Forms show field errors and preserve valid entries on retry. Dialogs manage focus, Escape, and return focus. Motion respects `prefers-reduced-motion`. Validate widths of 360px, 768px, and 1440px without horizontal overflow.
+Every page has loading, empty, error, and success states as applicable. Filters appear in the URL. Forms show field errors and preserve valid entries on retry. Dialogs manage focus, Escape, and return focus. Use icons when they identify an action or status; omit decorative arrows from links and calls to action. Keep motion brief and tied to page, dialog, toast, or button feedback, and respect `prefers-reduced-motion`. Validate widths of 360px, 768px, and 1440px without horizontal overflow.
 
 Product pages have product-specific metadata and content available to crawlers without JavaScript, through server rendering or prerendering. This requirement does not change the selected backend stack. Private account/admin pages must not be publicly cached or included in the sitemap.
 

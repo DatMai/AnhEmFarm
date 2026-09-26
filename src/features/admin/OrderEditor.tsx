@@ -31,7 +31,7 @@ export function OrderEditor() {
     void send({ path: `/admin/orders/${id}/collection`, body: { state, version: order.version, operationKey: crypto.randomUUID(),
       ...(reason.trim() ? { reason: reason.trim() } : {}) }, label: `COD ${state.toLowerCase()}` })
   }
-  return <div><Link to="/admin/orders">← Orders</Link><h2>Order details</h2><ErrorMessage message={loadError} />
+  return <div><Link className="back-link" to="/admin/orders">Orders</Link><h2>Order details</h2><ErrorMessage message={loadError} />
     {!order && !loadError && <p role="status">Loading order…</p>}
     {order && <><p><strong>Status:</strong> {order.status} · <strong>COD:</strong> {order.collectionState}</p>
       <p><strong>Customer:</strong> {order.recipient.recipient} · {order.recipient.phone}</p><p>{order.recipient.line1}</p>
