@@ -1,0 +1,11 @@
+.git
+.env*
+node_modules
+server/node_modules
+dist
+dist-ssr
+server/dist
+server/src/generated
+test-results
+playwright-report
+.superpowers

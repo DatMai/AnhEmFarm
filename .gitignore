@@ -1,5 +1,16 @@
 node_modules
 dist
+dist-ssr
 .DS_Store
 *.local
 *.tsbuildinfo
+.env
+.env.*
+!.env.example
+!.env.production.example
+server/dist
+server/src/generated/prisma
+server/uploads/
+
+test-results/
+playwright-report/
