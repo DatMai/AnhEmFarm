@@ -11,6 +11,7 @@ import { readConfig, type AppConfig } from '../src/config.js';
 
 export interface Harness {
   baseUrl: string;
+  origin: string;
   db: PrismaClient;
   resolve<T>(token: Type<T>): T;
   request(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; body: any; headers: Headers }>;
@@ -43,6 +44,7 @@ export async function startHarness(overrides: Partial<AppConfig> = {}): Promise<
   const baseUrl = `http://127.0.0.1:${address.port}`;
   const harness: Harness = {
     baseUrl,
+    origin: config.origin,
     db,
     resolve<T>(token: Type<T>): T { return app.get(token); },
     client() {

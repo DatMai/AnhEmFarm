@@ -21,7 +21,7 @@ describe('media upload', () => {
     const csrf = await h.request('GET', '/api/v1/auth/csrf');
     const anonymousCookie = csrf.headers.getSetCookie().map(value => value.split(';')[0]).join('; ');
     const login = await h.request('POST', '/api/v1/auth/login', { email, password },
-      { Cookie: anonymousCookie, Origin: 'http://127.0.0.1:5173', 'X-CSRF-Token': csrf.body.token });
+      { Cookie: anonymousCookie, Origin: h.origin, 'X-CSRF-Token': csrf.body.token });
     expect(login.status).toBe(200);
     const cookie = login.headers.getSetCookie().map(value => value.split(';')[0]).find(value => value.startsWith('aef_session='))!;
     const token = await h.request('GET', '/api/v1/auth/csrf', undefined, { Cookie: cookie });
@@ -32,7 +32,7 @@ describe('media upload', () => {
     const form = new FormData();
     form.append('file', new Blob([new Uint8Array(bytes)], { type: mime }), 'image.png');
     const response = await fetch(`${h.baseUrl}/api/v1/admin/media`, { method: 'POST', body: form,
-      headers: { Origin: 'http://127.0.0.1:5173', ...(credentials ? { Cookie: credentials.cookie,
+      headers: { Origin: h.origin, ...(credentials ? { Cookie: credentials.cookie,
         'X-CSRF-Token': credentials.token } : {}) } });
     return { status: response.status, body: await response.json() };
   }

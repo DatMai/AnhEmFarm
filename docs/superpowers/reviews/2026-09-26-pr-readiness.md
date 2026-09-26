@@ -21,3 +21,9 @@ The original commerce implementation had a separate whole-branch review, and the
 At the time of this record, this Git checkout has no configured remote and the `gh` CLI is unavailable. Pushing a branch and creating a PR require the owner's repository URL and authenticated GitHub access. No PR or CI result is claimed here.
 
 Subsequent handoff: the owner supplied `https://github.com/DatMai/AnhEmFarm.git`. After checking the public repository was empty and screening the local history for high-confidence credentials, the initial prototype commit `afa0b56` was pushed as remote `main`. The full commerce history was pushed to `codex/commerce-pr`, and [PR #1](https://github.com/DatMai/AnhEmFarm/pull/1) was opened. GitHub CI was still running at this update; no remote pass is claimed.
+
+## CI origin correction
+
+The first push and pull-request CI runs for `3f842ff` failed in `npm run verify`: three media integration cases received HTTP 403 instead of their expected auth or upload response. CI sets `APP_ORIGIN=http://127.0.0.1:4278`, while `server/test/media.integration.test.ts` sent the unrelated local Vite origin `http://127.0.0.1:5173`. The security middleware correctly rejected those requests before authentication.
+
+RED: `APP_ORIGIN=http://127.0.0.1:4278 npm --prefix server run test:integration -- test/media.integration.test.ts` failed 3/9 cases with the same 403 mismatch. The test harness now exposes its configured origin, and media requests use it. GREEN: the same focused command passed 9/9; `APP_MODE=test APP_ORIGIN=http://127.0.0.1:4278 npm run verify` passed the client/SSR/API builds, 17 frontend tests and 153 backend tests; and `APP_MODE=test APP_ORIGIN=http://127.0.0.1:4278 npm run test:e2e` passed 23/23 browser cases. The browser run still logged proxy refusals for background auth requests in public/mock cases without an API process. GitHub CI must rerun on the fix commit before a remote pass can be claimed.
