@@ -1,6 +1,7 @@
-import { Controller, Get, Header, Module, Param, Post, Req, Res, UseGuards, PayloadTooLargeException,
-  UnprocessableEntityException } from '@nestjs/common';
+import { Controller, Get, Module, Param, Post, Req, Res, UseGuards, PayloadTooLargeException,
+  UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import Busboy from 'busboy';
+import { parseCookie } from 'cookie';
 import type { Request, Response } from 'express';
 import type { ActorRequest } from '../identity/auth.guard.js';
 import { AdminGuard } from '../identity/admin.guard.js';
@@ -8,6 +9,7 @@ import { MAX_IMAGE_BYTES, MediaService } from './media.service.js';
 import { IdentityModule } from '../identity/identity.module.js';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 import { createStorage, MEDIA_STORAGE } from './storage.js';
+import { SESSION_COOKIE, SessionService } from '../identity/session.service.js';
 
 async function readMultipart(request: Request): Promise<Buffer> {
   return new Promise((resolve, reject) => {
@@ -58,7 +60,7 @@ async function readMultipart(request: Request): Promise<Buffer> {
 
 @Controller()
 export class MediaController {
-  constructor(private readonly media: MediaService) {}
+  constructor(private readonly media: MediaService, private readonly sessions: SessionService) {}
 
   @Post('admin/media')
   @UseGuards(AdminGuard)
@@ -67,10 +69,17 @@ export class MediaController {
   }
 
   @Get('media/products/:filename')
-  @Header('Cache-Control', 'public, max-age=31536000, immutable')
-  async get(@Param('filename') filename: string, @Res() response: Response): Promise<void> {
-    const bytes = await this.media.read(`products/${filename}`);
-    response.type('image/webp').send(bytes);
+  async get(@Param('filename') filename: string, @Req() request: Request, @Res() response: Response): Promise<void> {
+    response.setHeader('Cache-Control', 'no-store');
+    const rawSession = parseCookie(request.header('cookie') ?? '')[SESSION_COOKIE];
+    let actor;
+    if (rawSession) {
+      try { actor = (await this.sessions.findValid(rawSession)).actor; }
+      catch (error) { if (!(error instanceof UnauthorizedException)) throw error; }
+    }
+    const result = await this.media.read(`products/${filename}`, actor);
+    response.setHeader('Cache-Control', result.public ? 'no-store' : 'private, no-store');
+    response.type('image/webp').send(result.bytes);
   }
 }
 

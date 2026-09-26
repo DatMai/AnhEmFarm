@@ -63,10 +63,17 @@ export class MediaService {
     }
   }
 
-  async read(key: string): Promise<Buffer> {
+  async read(key: string, actor?: Actor): Promise<{ bytes: Buffer; public: boolean }> {
     if (!validMediaKey(key)) throw new NotFoundException();
-    if (!await this.db.media.findUnique({ where: { objectKey: key }, select: { id: true } })) throw new NotFoundException();
-    try { return await this.storage.read(key); }
+    const row = await this.db.media.findUnique({ where: { objectKey: key }, select: { id: true,
+      products: { where: { product: { status: 'PUBLISHED' } }, select: { id: true }, take: 1 } } });
+    if (!row) throw new NotFoundException();
+    const isPublic = row.products.length > 0;
+    if (!isPublic) {
+      if (!actor || actor.role !== 'ADMIN') throw new NotFoundException();
+      await this.assertAdmin(actor);
+    }
+    try { return { bytes: await this.storage.read(key), public: isPublic }; }
     catch { throw new NotFoundException(); }
   }
 

@@ -1,5 +1,6 @@
-import { lstat, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
-import { resolve, join, sep } from 'node:path';
+import { lstat, mkdir, open, readdir, rm } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { resolve, join, sep, parse, relative } from 'node:path';
 import { GetObjectCommand, ListObjectsV2Command, PutObjectCommand, DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import type { AppConfig } from '../config.js';
 
@@ -24,23 +25,47 @@ export class LocalStorage implements Storage {
     if (!path.startsWith(this.root + sep)) throw new Error('Invalid media path');
     return path;
   }
-  private async checkDirectory(): Promise<void> {
+  private async checkDirectory(create = false): Promise<void> {
+    // Check every component before creation so a configured root (or its parent)
+    // cannot redirect a generated key through a symlink.
     const directory = join(this.root, 'products');
-    const info = await lstat(directory);
-    if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Invalid media directory');
+    const anchor = parse(directory).root;
+    let current = anchor;
+    for (const component of relative(anchor, directory).split(sep)) {
+      current = join(current, component);
+      let info;
+      try { info = await lstat(current); }
+      catch (error) {
+        if (!create || (error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        try { await mkdir(current); }
+        catch (mkdirError) {
+          if ((mkdirError as NodeJS.ErrnoException).code !== 'EEXIST') throw mkdirError;
+        }
+        info = await lstat(current);
+      }
+      if (!info.isDirectory() || info.isSymbolicLink()) throw new Error('Invalid media directory');
+    }
   }
   async put(key: string, bytes: Buffer, contentType: string): Promise<void> {
     if (contentType !== 'image/webp') throw new Error('Invalid media type');
     const path = this.path(key);
-    await mkdir(join(this.root, 'products'), { recursive: true });
-    await this.checkDirectory();
-    await writeFile(path, bytes, { flag: 'wx', mode: 0o644 });
+    await this.checkDirectory(true);
+    const handle = await open(path, constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW, 0o644);
+    let complete = false;
+    try { await handle.writeFile(bytes); complete = true; }
+    finally {
+      await handle.close();
+      if (!complete) await rm(path, { force: true });
+    }
   }
   async delete(key: string): Promise<void> { await this.checkDirectory(); await rm(this.path(key), { force: true }); }
   async read(key: string): Promise<Buffer> {
     await this.checkDirectory();
-    if (!(await lstat(this.path(key))).isFile()) throw new Error('Invalid media object');
-    return readFile(this.path(key));
+    const handle = await open(this.path(key), constants.O_RDONLY | constants.O_NOFOLLOW);
+    try {
+      if (!(await handle.stat()).isFile()) throw new Error('Invalid media object');
+      return await handle.readFile();
+    } finally { await handle.close(); }
   }
   async list(): Promise<StoredObject[]> {
     const directory = join(this.root, 'products');

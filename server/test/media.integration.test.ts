@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, symlink } from 'node:fs/promises';
+import { mkdtemp, readFile, realpath, rm, symlink, access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
@@ -81,12 +81,29 @@ describe('media upload', () => {
     const row = await h.db.media.findUniqueOrThrow({ where: { id: result.body.id } });
     expect(row.objectKey).toMatch(/^products\/[0-9a-f-]{36}\.webp$/);
     expect(row.mime).toBe('image/webp');
-    const image = await fetch(new URL(result.body.url, h.baseUrl));
+    const url = new URL(result.body.url, h.baseUrl);
+    expect((await fetch(url)).status).toBe(404);
+    const image = await fetch(url, { headers: { Cookie: admin.cookie } });
     expect(image.status).toBe(200);
+    expect(image.headers.get('cache-control')).toBe('private, no-store');
     const processed = sharp(Buffer.from(await image.arrayBuffer()));
     const metadata = await processed.metadata();
     expect(metadata.format).toBe('webp');
     expect(metadata.exif).toBeUndefined();
+    const category = await h.db.product.findUniqueOrThrow({ where: { id: scenario.product.id } });
+    const draft = await h.db.product.create({ data: { categoryId: category.categoryId, slug: `media-draft-${randomUUID()}`,
+      name: 'Draft media fixture', description: 'Test only' } });
+    await h.db.productMedia.create({ data: { productId: draft.id, mediaId: row.id, sortPosition: 0 } });
+    expect((await fetch(url)).status).toBe(404);
+    expect((await fetch(url, { headers: { Cookie: admin.cookie } })).status).toBe(200);
+    const customer = await session(scenario.customer.email, scenario.customer.password);
+    expect((await fetch(url, { headers: { Cookie: customer.cookie } })).status).toBe(404);
+    await h.db.product.update({ where: { id: draft.id }, data: { status: 'PUBLISHED' } });
+    const publicImage = await fetch(url);
+    expect(publicImage.status).toBe(200);
+    expect(publicImage.headers.get('cache-control')).toBe('no-store');
+    await h.db.product.update({ where: { id: draft.id }, data: { status: 'ARCHIVED' } });
+    expect((await fetch(url)).status).toBe(404);
   });
 
   it('rejects stale admin actor before storage writes', async () => {
@@ -133,8 +150,9 @@ describe('media upload', () => {
   });
 
   it('accepts only generated local keys and refuses a symlinked media directory', async () => {
-    const root = await mkdtemp(resolve(tmpdir(), 'aef-media-'));
-    const outside = await mkdtemp(resolve(tmpdir(), 'aef-outside-'));
+    const safeTemp = await realpath(tmpdir());
+    const root = await mkdtemp(resolve(safeTemp, 'aef-media-'));
+    const outside = await mkdtemp(resolve(safeTemp, 'aef-outside-'));
     const storage = new LocalStorage(root);
     try {
       await expect(storage.put('../escape.webp', Buffer.from('x'), 'image/webp')).rejects.toThrow('Invalid media key');
@@ -143,6 +161,23 @@ describe('media upload', () => {
         .rejects.toThrow('Invalid media directory');
     } finally {
       await rm(root, { recursive: true, force: true });
+      await rm(outside, { recursive: true, force: true });
+    }
+  });
+
+  it('refuses a symlinked configured storage root before creating products', async () => {
+    const safeTemp = await realpath(tmpdir());
+    const parent = await mkdtemp(resolve(safeTemp, 'aef-media-parent-'));
+    const outside = await mkdtemp(resolve(safeTemp, 'aef-media-outside-'));
+    const rootLink = resolve(parent, 'root-link');
+    await symlink(outside, rootLink);
+    try {
+      const storage = new LocalStorage(rootLink);
+      await expect(storage.put(`products/${randomUUID()}.webp`, Buffer.from('x'), 'image/webp'))
+        .rejects.toThrow('Invalid media directory');
+      await expect(access(resolve(outside, 'products'))).rejects.toThrow();
+    } finally {
+      await rm(parent, { recursive: true, force: true });
       await rm(outside, { recursive: true, force: true });
     }
   });
