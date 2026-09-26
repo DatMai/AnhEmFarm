@@ -15,7 +15,7 @@ const previewArtwork: Record<string, string> = {
   'demo-floral-honey': '/images/honey.jpg',
   'demo-forest-honey': '/images/honey.jpg',
 }
-export function previewImage(slug: string, confirmed: boolean): string | undefined { return confirmed ? undefined : previewArtwork[slug] }
+export function previewImage(slug: string, _confirmed: boolean): string | undefined { return previewArtwork[slug] }
 export function imageUrl(media?: Media): string | undefined {
   return media && /^products\/[0-9a-f-]+\.webp$/.test(media.objectKey) ? `/api/v1/media/${media.objectKey}` : undefined
 }

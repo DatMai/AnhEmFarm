@@ -28,7 +28,7 @@ test('a confirmed former preview no longer claims ordering is unavailable', asyn
     description: 'Confirmed product details.', restricted18: false,
     variants: [{ id: 'variant-1', label: 'Jar', packDetails: '250 g', priceVnd: 75_000, inStock: true, saleEnabled: true }] } }))
   await page.goto('/products')
-  await expect(page.locator('.product-card .product-badge')).toHaveCount(0)
+  await expect(page.locator('.product-card .product-badge')).toHaveText('Local demo · illustrative image')
   await page.getByRole('link', { name: 'Mulberry jam', exact: true }).click()
   await expect(page.locator('.preview-notice')).toHaveCount(0)
   await expect(page.getByRole('button', { name: /add jar to cart/i })).toBeEnabled()

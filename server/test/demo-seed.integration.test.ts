@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { startHarness, type Harness } from './harness.js';
-import { seedDemoCatalog } from '../prisma/demo-catalog.js';
+import { seedDemoCatalog, seedDemoShopping } from '../prisma/demo-catalog.js';
 
 describe('development catalog seed', () => {
   let h: Harness;
@@ -38,6 +38,24 @@ describe('development catalog seed', () => {
       expect(updated).toMatchObject({ confirmed: true, name: 'Confirmed mulberry jam' });
       expect(updated.variants[0]).toMatchObject({ priceVnd: 75_000n, stock: 12, saleEnabled: true });
       expect((await tx.storeSettings.findFirst())?.salesEnabled).toBe(true);
+      throw rollback;
+    })).rejects.toBe(rollback);
+  });
+  it('adds fictional prices and permits local COD shopping without enabling wine', async () => {
+    const rollback = new Error('rollback shopping seed');
+    await expect(h.db.$transaction(async tx => {
+      await tx.storeSettings.deleteMany();
+      await seedDemoShopping(tx);
+      const jam = await tx.product.findUniqueOrThrow({ where: { slug: 'demo-mulberry-jam' }, include: { variants: true } });
+      expect(jam.confirmed).toBe(true);
+      expect(jam.variants[0]).toMatchObject({ priceVnd: 79000n, stock: 20, saleEnabled: true });
+      const wine = await tx.product.findUniqueOrThrow({ where: { slug: 'demo-mulberry-wine' }, include: { variants: true } });
+      expect(wine.variants[0]).toMatchObject({ priceVnd: 189000n, stock: 20, saleEnabled: true });
+      expect((await tx.storeSettings.findFirst())?.wineEnabled).toBe(false);
+      expect((await tx.storeSettings.findFirst())?.salesEnabled).toBe(true);
+      expect((await tx.shippingZone.findUnique({ where: { code: 'DEMO-LOCAL' } }))?.feeVnd).toBe(30000n);
+      await seedDemoShopping(tx);
+      expect((await tx.product.findUniqueOrThrow({ where: { slug: 'demo-mulberry-jam' }, include: { variants: true } })).variants[0].stock).toBe(20);
       throw rollback;
     })).rejects.toBe(rollback);
   });

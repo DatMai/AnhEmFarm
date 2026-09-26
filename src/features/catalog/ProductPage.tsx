@@ -100,12 +100,13 @@ export function ProductPage() {
           ) : (
             <div className="image-placeholder" />
           )}{' '}
-          {illustrative && <span>{!product.images.length && demoPhoto ? 'Preview listing · illustrative image' : 'Illustrative image'}</span>}
+          {illustrative && <span>{!product.confirmed && demoPhoto ? 'Preview listing · illustrative image' : 'Illustrative image'}</span>}
         </div>
         <div className="detail-copy">
           <span className="section-kicker">{product.category.name}</span>
           <h1>{product.name}</h1>
-          {demoPhoto && <p className="preview-notice">Preview listing. {product.images.length ? '' : 'The image is illustrative. '}Product details and pricing have not been confirmed. Ordering is unavailable.</p>}
+          {!product.confirmed && demoPhoto && <p className="preview-notice">Preview listing. {product.images.length ? '' : 'The image is illustrative. '}Product details and pricing have not been confirmed. Ordering is unavailable.</p>}
+          {product.confirmed && demoPhoto && product.description.startsWith('Development demo listing.') && <p className="preview-notice">Development demo listing. The image, price, stock, and delivery details are fictional for local testing.</p>}
           <p>{product.description}</p>
           {product.restricted18 && (
             <p className="notice">

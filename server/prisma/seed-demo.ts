@@ -2,7 +2,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { config as loadDotEnv } from 'dotenv';
 import { resolve } from 'node:path';
 import { PrismaClient } from '../src/generated/prisma/client.js';
-import { seedDemoCatalog } from './demo-catalog.js';
+import { seedDemoCatalog, seedDemoShopping } from './demo-catalog.js';
 
 loadDotEnv({ path: resolve(import.meta.dirname, '../../.env.dev'), quiet: true });
 
@@ -15,7 +15,7 @@ const databaseName = decodeURIComponent(new URL(databaseUrl).pathname.slice(1));
 if (!/_(dev|test)$/.test(databaseName)) throw new Error('Demo seed requires a database name ending _dev or _test');
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: databaseUrl }) });
 try {
-  await db.$transaction(seedDemoCatalog);
+  await db.$transaction(process.env.DEMO_SHOPPING === 'true' ? seedDemoShopping : seedDemoCatalog);
 } finally {
   await db.$disconnect();
 }

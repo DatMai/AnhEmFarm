@@ -37,3 +37,47 @@ export async function seedDemoCatalog(tx: Prisma.TransactionClient): Promise<voi
   const settings = await tx.storeSettings.findFirst();
   if (!settings) await tx.storeSettings.create({ data: { salesEnabled: false, wineEnabled: false } });
 }
+
+const demoOffers = [
+  { slug: 'demo-fresh-mulberries', price: 49000n, pack: 'Demo 500 g pack' },
+  { slug: 'demo-mulberry-jam', price: 79000n, pack: 'Demo 250 g jar' },
+  { slug: 'demo-dried-mulberries', price: 69000n, pack: 'Demo 200 g pack' },
+  { slug: 'demo-mulberry-wine', price: 189000n, pack: 'Demo 750 mL bottle', restricted: true },
+  { slug: 'demo-robusta', price: 99000n, pack: 'Demo 250 g pack' },
+  { slug: 'demo-arabica', price: 139000n, pack: 'Demo 250 g pack' },
+  { slug: 'demo-green-tea', price: 89000n, pack: 'Demo 100 g pack' },
+  { slug: 'demo-oolong-tea', price: 119000n, pack: 'Demo 100 g pack' },
+  { slug: 'demo-floral-honey', price: 129000n, pack: 'Demo 350 g jar' },
+  { slug: 'demo-forest-honey', price: 149000n, pack: 'Demo 350 g jar' },
+] as const;
+
+/** Explicitly enables fictional COD shopping in local/test databases only. */
+export async function seedDemoShopping(tx: Prisma.TransactionClient): Promise<void> {
+  await seedDemoCatalog(tx);
+  for (const offer of demoOffers) {
+    const product = await tx.product.findUniqueOrThrow({ where: { slug: offer.slug }, include: { variants: true } });
+    if (product.name !== products.find(item => item.slug === offer.slug)?.name || product.variants.length !== 1)
+      throw new Error(`Demo shopping refuses a seller-edited listing: ${offer.slug}`);
+    const variant = product.variants[0];
+    if (variant.priceVnd !== null && variant.priceVnd !== offer.price)
+      throw new Error(`Demo shopping refuses a seller-edited price: ${offer.slug}`);
+    if (product.confirmed) continue;
+    if (variant.stock !== 0 || variant.saleEnabled || product.description !== products.find(item => item.slug === offer.slug)?.description)
+      throw new Error(`Demo shopping refuses a seller-edited listing: ${offer.slug}`);
+    await tx.product.update({ where: { id: product.id }, data: { confirmed: true,
+      description: 'Development demo listing. The product, pack, price, stock, and availability are fictional and for local testing only.' } });
+    await tx.variant.update({ where: { id: variant.id }, data: { label: offer.pack, packDetails: offer.pack,
+      priceVnd: offer.price, stock: 20, saleEnabled: true } });
+  }
+  await tx.shippingZone.upsert({ where: { code: 'DEMO-LOCAL' }, update: {},
+    create: { code: 'DEMO-LOCAL', displayName: 'Demo delivery area', enabled: true, feeVnd: 30000n } });
+  for (const slug of ['about', 'contact', 'shipping', 'returns', 'privacy', 'terms'] as const) {
+    await tx.contentPage.upsert({ where: { slug }, update: {}, create: { slug,
+      title: `Demo ${slug} information`, source: `Development demo only. These are fictional ${slug} details for local checkout testing. No real orders are accepted.`,
+      status: 'PUBLISHED', approvedAt: new Date() } });
+  }
+  const settings = await tx.storeSettings.findFirstOrThrow();
+  await tx.storeSettings.update({ where: { id: settings.id }, data: { salesEnabled: true, wineEnabled: false,
+    businessName: settings.businessName ?? 'AnhEmFarm local demo', supportEmail: settings.supportEmail ?? 'demo@example.test',
+    launchConfirmedAt: settings.launchConfirmedAt ?? new Date() } });
+}

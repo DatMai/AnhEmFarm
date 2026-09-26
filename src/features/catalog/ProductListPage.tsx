@@ -21,7 +21,7 @@ export function ProductCard({ product }: { product: ProductSummary }) {
   return <article className="product-card">
     <Link className="product-image" to={`/products/${encodeURIComponent(product.slug)}`}>
       {photo ? <img src={photo} alt={`${product.name}${illustrative ? ' — illustrative image' : ''}`} loading="lazy" /> : <div className="image-placeholder" aria-label="No product image available" />}
-      {illustrative && <span className="product-badge">{!product.images.length && demoPhoto ? 'Preview listing' : 'Illustrative image'}</span>}
+      {illustrative && <span className="product-badge">{!product.confirmed && demoPhoto ? 'Preview listing' : demoPhoto ? 'Local demo · illustrative image' : 'Illustrative image'}</span>}
     </Link>
     <div className="product-body">
       <span className="product-category">{product.category.name}</span>
@@ -76,6 +76,6 @@ export function ProductListPage() {
       <div className="product-grid">{query.data.items.map(product => <ProductCard product={product} key={product.id} />)}</div>
       <div className="pagination"><button disabled={page <= 1} onClick={() => change('page', String(page - 1))}>Previous</button><span>Page {page}</span><button disabled={page * query.data.pageSize >= query.data.total} onClick={() => change('page', String(page + 1))}>Next</button></div>
     </> : <PageState title={q || category ? 'No matching products' : 'No products published yet'}>{q || category ? <Link to="/products">Browse all products</Link> : 'Listings will appear here when product details are ready.'}</PageState>}
-    <p className="catalog-note">Images labeled illustrative are visual references. Preview listings are not available to order.</p>
+    <p className="catalog-note">Images labeled illustrative are visual references. Local demo listings use fictional prices and stock. Check each listing for current ordering status.</p>
   </section>
 }

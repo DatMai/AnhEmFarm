@@ -6,9 +6,9 @@ test('mixed variants only label the individually purchasable one available', () 
   expect(variantAvailable(product, { id: '2', label: 'No price', packDetails: '250 g', priceVnd: null, inStock: true, saleEnabled: true })).toBe(false)
   expect(variantAvailable(product, { id: '3', label: 'No pack', packDetails: ' ', priceVnd: 100_000, inStock: true, saleEnabled: true })).toBe(false)
 })
-test('illustrative artwork is available only for unconfirmed demo listings', () => {
+test('illustrative artwork stays available for demo listings during local shopping', () => {
   expect(previewImage('demo-mulberry-jam', false)).toBe('/images/jam.jpg')
   expect(previewImage('demo-floral-honey', false)).toBe('/images/honey.jpg')
-  expect(previewImage('demo-mulberry-jam', true)).toBeUndefined()
+  expect(previewImage('demo-mulberry-jam', true)).toBe('/images/jam.jpg')
   expect(previewImage('real-mulberry-jam', false)).toBeUndefined()
 })

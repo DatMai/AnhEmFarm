@@ -1,0 +1,7 @@
+# Local demo shopping verification
+
+Date: 2026-09-26. This follow-up uses the existing commerce design and COD flow. The owner explicitly requested invented prices for local testing. All amounts, stock, delivery and information pages created by `DEMO_SHOPPING=true` are fictional. The seed requires the explicit flag and a `_dev` or `_test` database and is rejected in production mode.
+
+The demo seed was applied to the local development database. It assigns VND prices to ten catalog concepts, enables COD shopping for nine non-wine concepts, creates a demo delivery area and clearly labeled demo information pages. Wine has a sample price but stays unavailable to order. Existing seller-edited listings and non-demo prices are refused; stock is preserved on reruns after seeding.
+
+Verification: `npm run verify` passed client/SSR/API builds, 17 frontend tests and 153 PostgreSQL tests. A targeted rerun of the seed integration suite passed 4/4 after the final safety check. `e2e/demo-browse.spec.ts` passed 5/5. The single `e2e/demo-shop-admin.spec.ts` case passed against a real test API and PostgreSQL database: customer login, product detail, cart, quote, COD placement, admin login/dashboard/orders, confirmation, shipping, delivery, COD collection and customer delivery status. Its first two runs found test locator/URL parsing mistakes; those were fixed before the passing run. No real payment or production order was made.
