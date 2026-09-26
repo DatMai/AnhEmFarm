@@ -28,7 +28,7 @@ describe('inventory adjustments', () => {
   it('rejects negative stock, invalid delta and customer writes over HTTP', async () => {
     const admin = await adminClient();
     const current = await h.db.variant.findUniqueOrThrow({ where: { id: s.variant.id } });
-    const path = `/api/v1/admin/variants/${s.variant.id}/inventory`;
+    const path = `/api/v1/admin/inventory/${s.variant.id}/adjustments`;
     expect((await admin.request('POST', path, { delta: -100, reason: 'Bad count', version: current.version, operationKey: randomUUID() })).status).toBe(422);
     expect((await admin.request('POST', path, { delta: 0.5, reason: 'Fraction', version: current.version, operationKey: randomUUID() })).status).toBe(422);
     const customer = h.client();
@@ -50,7 +50,7 @@ describe('inventory adjustments', () => {
     const sku = `FLOW-${randomUUID().slice(0, 8)}`;
     const variant = await admin.request('POST', `/api/v1/admin/products/${productId}/variants`, { sku, label: 'Pack', packDetails: '250 g', priceVnd: 100000, saleEnabled: true });
     expect(variant.status).toBe(201);
-    const adjusted = await admin.request('POST', `/api/v1/admin/variants/${variant.body.id}/inventory`, { delta: 3, reason: 'Initial count', version: 1, operationKey: randomUUID() });
+    const adjusted = await admin.request('POST', `/api/v1/admin/inventory/${variant.body.id}/adjustments`, { delta: 3, reason: 'Initial count', version: 1, operationKey: randomUUID() });
     expect(adjusted.body).toEqual({ stock: 3, version: 2 });
     const published = await admin.request('PATCH', `/api/v1/admin/products/${productId}`, { expectedVersion: 1, confirmed: true, status: 'PUBLISHED' });
     expect(published.status).toBe(200);

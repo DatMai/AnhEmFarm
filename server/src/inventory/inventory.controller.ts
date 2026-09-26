@@ -7,12 +7,12 @@ import { InventoryService } from './inventory.service.js';
 
 const adjustment = z.strictObject({ delta: z.number().int().refine(value => value !== 0),
   reason: z.string().trim().min(1).max(500), version: z.number().int().positive(), operationKey: z.uuid() });
-@Controller('admin/variants')
+@Controller('admin/inventory')
 @UseGuards(AdminGuard)
 export class InventoryController {
   constructor(private readonly inventory: InventoryService) {}
-  @Post(':id/inventory')
-  adjust(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
-    return this.inventory.adjust(request.actor!, parse(idSchema, id), parse(adjustment, body));
+  @Post(':variantId/adjustments')
+  adjust(@Req() request: ActorRequest, @Param('variantId') variantId: string, @Body() body: unknown) {
+    return this.inventory.adjust(request.actor!, parse(idSchema, variantId), parse(adjustment, body));
   }
 }

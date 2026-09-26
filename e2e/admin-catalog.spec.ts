@@ -18,7 +18,7 @@ test('admin creates, stocks and publishes a product through the UI', async ({ pa
     if (path === `/api/v1/admin/products/${productId}` && request.method() === 'GET') return respond(product)
     if (path === `/api/v1/admin/products/${productId}` && request.method() === 'PATCH') { product = { ...product, ...body, version: product.version + 1 }; return respond(product) }
     if (path === `/api/v1/admin/products/${productId}/variants`) { product.variants.push({ ...body, id: variantId, stock: 0, version: 1 }); return respond(product.variants[0], 201) }
-    if (path === `/api/v1/admin/variants/${variantId}/inventory`) { product.variants[0].stock += body.delta; product.variants[0].version++; return respond({ stock: product.variants[0].stock, version: product.variants[0].version }, 201) }
+    if (path === `/api/v1/admin/inventory/${variantId}/adjustments`) { product.variants[0].stock += body.delta; product.variants[0].version++; return respond({ stock: product.variants[0].stock, version: product.variants[0].version }, 201) }
     if (path === '/api/v1/admin/media') return respond({ id: '44444444-4444-4444-8444-444444444444', url: '/api/v1/media/products/test.webp' }, 201)
     if (path === `/api/v1/admin/products/${productId}/images`) { product.images.push({ id: body.mediaId, objectKey: 'products/44444444-4444-4444-8444-444444444444.webp', illustrative: false }); return respond({ id: body.mediaId }, 201) }
     if (path === '/api/v1/products/test-coffee') return respond({ ...product, category: { id: categoryId, name: 'Coffee', slug: 'coffee' }, purchasable: true })
@@ -60,4 +60,60 @@ test('customer sees forbidden admin navigation', async ({ page }) => {
   await page.route('**/api/v1/auth/me', route => route.fulfill({ json: { user: { id: 'customer', name: 'Customer', email: 'customer@example.test', role: 'CUSTOMER', verified: true } } }))
   await page.goto('/admin/products')
   await expect(page.getByRole('heading', { name: 'Access forbidden' })).toBeVisible()
+})
+
+test('category and inventory paging reaches records beyond the first page', async ({ page }) => {
+  const categories = Array.from({ length: 21 }, (_, index) => ({ id: `${String(index + 1).padStart(8, '0')}-1111-4111-8111-111111111111`, name: `Category ${index + 1}`, slug: `category-${index + 1}`, version: 1 }))
+  const products = Array.from({ length: 21 }, (_, index) => ({ id: `${String(index + 1).padStart(8, '0')}-2222-4222-8222-222222222222`, name: `Product ${index + 1}`, variants: [{ id: `${String(index + 1).padStart(8, '0')}-3333-4333-8333-333333333333`, label: 'Pack', sku: `SKU-${index + 1}`, stock: index, version: 1 }] }))
+  await page.route('**/api/v1/**', route => {
+    const url = new URL(route.request().url()); const path = url.pathname
+    const current = Number(url.searchParams.get('page') ?? 1); const size = Number(url.searchParams.get('pageSize') ?? 20)
+    if (path === '/api/v1/auth/me') return route.fulfill({ json: { user: { id: 'admin', name: 'Admin', email: 'admin@example.test', role: 'ADMIN', verified: true } } })
+    if (path === '/api/v1/admin/categories') return route.fulfill({ json: { items: categories.slice((current - 1) * size, current * size), page: current, pageSize: size, total: 21 } })
+    if (path === '/api/v1/admin/products') return route.fulfill({ json: { items: products.slice((current - 1) * size, current * size), page: current, pageSize: size, total: 21 } })
+    return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } })
+  })
+  await page.goto('/admin/categories')
+  await expect(page.getByText('Category 21')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Next' }).click()
+  await expect(page.getByText('Category 21')).toBeVisible()
+  await page.goto('/admin/inventory')
+  await expect(page.getByText('Product 21')).toHaveCount(0)
+  await page.getByRole('button', { name: 'Next' }).click()
+  await expect(page.getByText('Product 21')).toBeVisible()
+  await page.goto('/admin/products/new')
+  await page.getByRole('button', { name: 'Next categories' }).click()
+  await page.getByLabel('Category').selectOption(categories[20].id)
+  await expect(page.getByLabel('Category')).toHaveValue(categories[20].id)
+})
+
+test('uncertain stock response reuses the key only for an identical retry', async ({ page }) => {
+  const keys: string[] = []
+  await page.route('**/api/v1/**', route => {
+    const url = new URL(route.request().url()); const path = url.pathname
+    if (path === '/api/v1/auth/me') return route.fulfill({ json: { user: { id: 'admin', name: 'Admin', email: 'admin@example.test', role: 'ADMIN', verified: true } } })
+    if (path === '/api/v1/auth/csrf') return route.fulfill({ json: { token: 'test-csrf' } })
+    if (path === '/api/v1/admin/products') return route.fulfill({ json: { items: [{ id: productId, name: 'Test coffee', variants: [{ id: variantId, sku: 'TEST-250', label: '250 g', stock: 5, version: 1 }] }], page: 1, pageSize: Number(url.searchParams.get('pageSize') ?? 20), total: 1 } })
+    if (path === `/api/v1/admin/inventory/${variantId}/adjustments`) {
+      keys.push(route.request().postDataJSON().operationKey)
+      if (keys.length < 3) return route.abort('failed')
+      return route.fulfill({ status: 201, json: { stock: 7, version: 2 } })
+    }
+    return route.fulfill({ status: 404, json: { code: 'NOT_FOUND' } })
+  })
+  await page.goto('/admin/inventory')
+  await page.getByRole('button', { name: 'Adjust' }).click()
+  await page.getByLabel('Change in units').fill('2')
+  await page.getByLabel('Reason').fill('Count correction')
+  await page.getByRole('button', { name: 'Apply adjustment' }).click()
+  await expect(page.getByText('The outcome is unknown.', { exact: false })).toBeVisible()
+  await page.getByRole('button', { name: 'Apply adjustment' }).click()
+  await expect.poll(() => keys.length).toBe(2)
+  expect(keys[1]).toBe(keys[0])
+  await page.getByLabel('Reason').fill('New count')
+  await expect(page.getByRole('button', { name: 'Apply adjustment' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Reload stock' }).click()
+  await page.getByRole('button', { name: 'Apply adjustment' }).click()
+  await expect.poll(() => keys.length).toBe(3)
+  expect(keys[2]).not.toBe(keys[0])
 })
