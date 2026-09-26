@@ -18,6 +18,7 @@ const environment = z.object({
   SMTP_PASSWORD: z.string().default(''),
   STORAGE_BUCKET: z.string().default(''),
   STORAGE_ENDPOINT: z.string().default(''),
+  STORAGE_LOCAL_DIR: z.string().default(''),
   SALES_ENABLED: z.enum(['true', 'false']).default('false'),
   DEMO_ENABLED: z.enum(['true', 'false']).default('false'),
   TRUSTED_PROXY_ADDRESS: z.string().default(''),
@@ -35,7 +36,7 @@ export interface AppConfig {
   sessionSecret: string;
   emailPayloadKey: string;
   smtp: { host: string; port: number; from?: string; user?: string; password?: string };
-  storage: { bucket: string; endpoint: string };
+  storage: { bucket: string; endpoint: string; localDir?: string };
   salesEnabled: boolean;
   demoEnabled: boolean;
   trustedProxyAddress?: string;
@@ -50,7 +51,7 @@ const applicationConfig = z.object({
   emailPayloadKey: z.string(),
   smtp: z.object({ host: z.string(), port: z.number().int().min(1).max(65535), from: z.string().optional(),
     user: z.string().optional(), password: z.string().optional() }),
-  storage: z.object({ bucket: z.string(), endpoint: z.string() }),
+  storage: z.object({ bucket: z.string(), endpoint: z.string(), localDir: z.string().optional() }),
   salesEnabled: z.boolean(),
   demoEnabled: z.boolean(),
   trustedProxyAddress: z.string().optional(),
@@ -82,7 +83,7 @@ export function readConfig(): AppConfig {
     emailPayloadKey: env.EMAIL_PAYLOAD_KEY,
     smtp: { host: env.SMTP_HOST, port: env.SMTP_PORT, from: env.SMTP_FROM,
       user: env.SMTP_USER, password: env.SMTP_PASSWORD },
-    storage: { bucket: env.STORAGE_BUCKET, endpoint: env.STORAGE_ENDPOINT },
+    storage: { bucket: env.STORAGE_BUCKET, endpoint: env.STORAGE_ENDPOINT, localDir: env.STORAGE_LOCAL_DIR || undefined },
     salesEnabled: env.SALES_ENABLED === 'true',
     demoEnabled: env.DEMO_ENABLED === 'true',
     trustedProxyAddress: env.TRUSTED_PROXY_ADDRESS || undefined,

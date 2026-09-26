@@ -1,0 +1,7 @@
+# Media storage
+
+Admin uploads use `POST /api/v1/admin/media` with one multipart field named `file`. The request requires an active ADMIN session, the same-origin `Origin` header, and a valid CSRF token. The API accepts a JPEG, PNG, or WebP image of at most 5 MiB and 25 million input pixels, rejects animations, and publishes a metadata-free WebP only after object storage succeeds. Uploaded media is not automatically attached to a product.
+
+Development and test use a local directory. Set `STORAGE_LOCAL_DIR` to a persistent, writable directory; the default is `server/uploads`, which is Git-ignored. Back up this directory together with PostgreSQL. Production requires `STORAGE_BUCKET` and uses the AWS SDK credential provider chain. Supply a region with `AWS_REGION` and credentials outside source control, preferably through a workload identity. The storage identity needs `s3:GetObject`, `s3:PutObject`, and `s3:DeleteObject` for `products/*`, plus `s3:ListBucket` scoped to the `products/` prefix. The bucket can remain private because the API serves published media through same-origin URLs. `STORAGE_ENDPOINT` is optional for an S3-compatible service.
+
+If database publication fails after object upload, the API immediately attempts deletion. The worker also scans for unreferenced objects older than one hour every hour and retries deletion; failed cleanup logs the object key without credentials. Keep the worker running in production. Restore tests should verify both the PostgreSQL media rows and corresponding objects.
