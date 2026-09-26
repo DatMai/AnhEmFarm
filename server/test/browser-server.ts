@@ -5,6 +5,10 @@ import { readConfig } from '../src/config.js'
 import { PrismaService } from '../src/db/prisma.service.js'
 import { EmailWorker } from '../src/email/email.worker.js'
 import { seedScenario } from './fixtures.js'
+import { randomUUID } from 'node:crypto'
+import { CartService } from '../src/cart/cart.service.js'
+import { QuoteService } from '../src/checkout/quote.service.js'
+import { CheckoutService } from '../src/checkout/checkout.service.js'
 dotenv({ path: '../.env.dev', quiet: true })
 const databaseUrl = process.env.TEST_DATABASE_URL
 if (!databaseUrl || !new URL(databaseUrl).pathname.endsWith('_test'))
@@ -22,6 +26,16 @@ await app.listen(3000, '127.0.0.1')
 process.send?.({ ready: true, fixture })
 process.on('message', async (message: { action: string; email?: string }) => {
   try {
+    if (message.action === 'order') {
+      const actor = { id: fixture.customer.id, role: 'CUSTOMER' as const, authVersion: 1 }
+      const cart = app.get(CartService), current = await cart.get(actor)
+      await cart.set(actor, fixture.variant.id, 1, current.version)
+      const { note: _note, ...address } = fixture.address
+      const quote = await app.get(QuoteService).create(actor, { address, ageConfirmed: false })
+      const placed = await app.get(CheckoutService).place(actor, quote.id, randomUUID())
+      process.send?.({ done: message.action, orderId: placed.order.id })
+      return
+    }
     if (message.action === 'restart') {
       await app.close()
       app = await createApp(config)

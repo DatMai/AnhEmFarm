@@ -28,7 +28,7 @@ export const variantCreate = z.strictObject({ sku, label, packDetails, priceVnd,
 export const variantPatch = z.strictObject({ expectedVersion: version, sku: sku.optional(), label: label.optional(),
   packDetails: packDetails.optional(), priceVnd: priceVnd.optional(), saleEnabled: z.boolean().optional(),
 });
-export const adminListQuery = pagination.extend({ status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional() });
+export const adminListQuery = pagination.extend({ status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(), q: z.string().trim().max(200).optional() });
 export const categoryListQuery = pagination;
 export const idSchema = z.uuid();
 export const parse = parseBody;

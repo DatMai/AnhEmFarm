@@ -135,7 +135,9 @@ export class CatalogService {
     return { items, page, pageSize, total };
   }
   async adminList(query: z.infer<typeof adminListQuery>) {
-    const where = query.status ? { status: query.status } : {};
+    const where: Prisma.ProductWhereInput = { ...(query.status ? { status: query.status } : {}),
+      ...(query.q ? { OR: [{ name: { contains: query.q, mode: 'insensitive' } },
+        { variants: { some: { sku: { contains: query.q, mode: 'insensitive' } } } }] } : {}) };
     const [products, total, settings] = await Promise.all([
       this.db.product.findMany({ where, include: productInclude, orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
         skip: (query.page - 1) * query.pageSize, take: query.pageSize }),

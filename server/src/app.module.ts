@@ -4,6 +4,10 @@ import { CustomersController } from './admin/customers.controller.js';
 import { CustomersService } from './admin/customers.service.js';
 import { ReportsController } from './admin/reports.controller.js';
 import { ReportsService } from './admin/reports.service.js';
+import { SettingsController, StoreController } from './admin/settings.controller.js';
+import { SettingsService } from './admin/settings.service.js';
+import { AdminContentController, PublicContentController } from './content/content.controller.js';
+import { ContentService } from './content/content.service.js';
 import { OrdersController } from './orders/orders.controller.js';
 import { AdminOrdersController } from './orders/admin-orders.controller.js';
 import { OrdersService } from './orders/orders.service.js';
@@ -29,8 +33,8 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
-      controllers: [AccountController, CustomersController, ReportsController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
-      providers: [AccountService, CustomersService, ReportsService, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
+      controllers: [AccountController, CustomersController, ReportsController, SettingsController, StoreController, AdminContentController, PublicContentController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
+      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }
