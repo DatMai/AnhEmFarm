@@ -205,6 +205,18 @@ export class CatalogService {
       return updated;
     }); } catch (error) { return uniqueConflict(error); }
   }
+  async addImage(actor: Actor, productId: string, mediaId: string) {
+    try { return await withTransaction(this.db, async tx => {
+      await this.assertAdmin(tx, actor);
+      await this.lockProductVariants(tx, productId);
+      if (!(await tx.product.findUnique({ where: { id: productId } }))) return missing();
+      if (!(await tx.media.findUnique({ where: { id: mediaId } }))) return missing();
+      const last = await tx.productMedia.aggregate({ where: { productId }, _max: { sortPosition: true } });
+      const linked = await tx.productMedia.create({ data: { productId, mediaId, sortPosition: (last._max.sortPosition ?? -1) + 1 } });
+      await this.audit.record(tx, { actorId: actor.id, action: 'PRODUCT_IMAGE_ADDED', targetType: 'Product', targetId: productId, changes: { mediaId } });
+      return linked;
+    }); } catch (error) { return uniqueConflict(error); }
+  }
   async createVariant(actor: Actor, productId: string, input: z.infer<typeof variantCreate>) {
     try { return await withTransaction(this.db, async tx => {
       await this.assertAdmin(tx, actor);

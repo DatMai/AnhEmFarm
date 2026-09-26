@@ -2,6 +2,7 @@ import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from
 import { AdminGuard } from '../identity/admin.guard.js';
 import type { ActorRequest } from '../identity/auth.guard.js';
 import { CatalogService } from './catalog.service.js';
+import { z } from 'zod';
 import { adminListQuery, categoryCreate, categoryPatch, idSchema, pagination, parse, productCreate,
   productPatch, variantCreate, variantPatch } from './catalog.schemas.js';
 
@@ -33,6 +34,11 @@ export class AdminCatalogController {
   @Patch('products/:id')
   updateProduct(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
     return this.catalog.updateProduct(request.actor!, parse(idSchema, id), parse(productPatch, body));
+  }
+  @Post('products/:id/images')
+  addImage(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
+    const { mediaId } = parse(z.strictObject({ mediaId: idSchema }), body);
+    return this.catalog.addImage(request.actor!, parse(idSchema, id), mediaId);
   }
   @Post('products/:id/variants')
   createVariant(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
