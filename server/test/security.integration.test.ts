@@ -46,6 +46,47 @@ describe('request security', () => {
     }
   });
 
+  it('accepts localhost and 127.0.0.1 as equivalent development origins only', async () => {
+    const development = await startHarness({ mode: 'development' });
+    const production = await startHarness({
+      mode: 'production',
+      origin: 'https://127.0.0.1',
+      demoEnabled: false,
+      sessionSecret: 'p'.repeat(32),
+      emailPayloadKey: 'e'.repeat(32),
+      smtp: { host: 'localhost', port: 1025, from: 'test@example.test' },
+      storage: { bucket: 'test-bucket', endpoint: 'http://localhost:9000' },
+      trustedProxyAddress: '127.0.0.1',
+    });
+    const csrf = await development.request('GET', '/api/v1/auth/csrf');
+    const cookie = csrf.headers.get('set-cookie')!.split(';')[0];
+    const expectedHost = new URL(origin).hostname;
+    const aliasHost = expectedHost === 'localhost' ? '127.0.0.1' : 'localhost';
+    const expectedUrl = new URL(origin);
+    const aliasOrigin = `${expectedUrl.protocol}//${aliasHost}${expectedUrl.port ? `:${expectedUrl.port}` : ''}`;
+    const headers = { Cookie: cookie, 'X-CSRF-Token': csrf.body.token };
+    try {
+      const accepted = await development.request('POST', '/api/v1/auth/login',
+        { email: 'origin-test@example.test', password: 'not-the-password' }, { ...headers, Origin: aliasOrigin });
+      expect(accepted.status).toBe(401);
+      expect(accepted.body.code).toBe('INVALID_CREDENTIALS');
+
+      const rejected = await development.request('POST', '/api/v1/auth/login',
+        { email: 'origin-test@example.test', password: 'not-the-password' }, { ...headers, Origin: 'https://localhost' });
+      expect(rejected.status).toBe(403);
+      expect(rejected.body.code).toBe('ORIGIN_REJECTED');
+
+      const productionRejected = await production.request('POST', '/api/v1/auth/login',
+        { email: 'origin-test@example.test', password: 'not-the-password' },
+        { ...headers, Origin: 'https://localhost' });
+      expect(productionRejected.status).toBe(403);
+      expect(productionRejected.body.code).toBe('ORIGIN_REJECTED');
+    } finally {
+      await production.close();
+      await development.close();
+    }
+  });
+
   it('rejects missing CSRF even with a valid Origin', async () => {
     const r = await first.request('POST', '/api/v1/auth/login', { email: 'test@example.test', password: 'x' }, { Origin: origin });
     expect(r.status).toBe(403);

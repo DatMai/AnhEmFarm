@@ -16,6 +16,21 @@ export const DEFAULT_RATE_POLICIES: RatePolicies = {
   guestOrderIp: { limit: 20, windowMs: 60 * 60_000 },
 };
 
+const loopbackHosts = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+function allowedOrigin(origin: string, expectedOrigin: string, mode: AppConfig['mode']): boolean {
+  if (origin === expectedOrigin) return true;
+  if (mode === 'production') return false;
+  try {
+    const actual = new URL(origin);
+    const expected = new URL(expectedOrigin);
+    return loopbackHosts.has(actual.hostname) && loopbackHosts.has(expected.hostname) &&
+      actual.protocol === expected.protocol && actual.port === expected.port;
+  } catch {
+    return false;
+  }
+}
+
 export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: RateLimitService, resolveSessionCsrf?: SessionCsrfResolver) {
   return async (request: Request, response: Response, next: NextFunction): Promise<void> => {
     if (['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
@@ -28,7 +43,7 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
     const origin = request.header('origin');
     // Native HTML form submissions may send the opaque "null" origin. They still need
     // the session-bound CSRF token below; missing and other mismatched origins are rejected.
-    if (origin !== config.origin && origin !== 'null') {
+    if ((origin !== 'null' && !allowedOrigin(origin ?? '', config.origin, config.mode))) {
       response.status(403).json({ code: 'ORIGIN_REJECTED' }); return;
     }
     if (resolveSessionCsrf) {

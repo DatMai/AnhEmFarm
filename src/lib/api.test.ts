@@ -15,6 +15,16 @@ test('server errors use safe English messages', async () => {
   await expect(api('/products')).rejects.toMatchObject({ status: 500, code: 'INTERNAL_DETAILS', message: 'We could not complete your request.' })
   expect(ApiError.name).toBe('ApiError')
 })
+test('origin mismatch explains how to reopen the local app', async () => {
+  vi.stubGlobal('fetch', vi.fn(async (path: RequestInfo | URL) => String(path).endsWith('/auth/csrf')
+    ? new Response(JSON.stringify({ token: 'csrf-1' }))
+    : new Response(JSON.stringify({ code: 'ORIGIN_REJECTED' }), { status: 403 })))
+  await expect(api('/auth/register', { method: 'POST', body: {} })).rejects.toMatchObject({
+    status: 403,
+    code: 'ORIGIN_REJECTED',
+    message: 'Open the app using its configured address and try again.'
+  })
+})
 test('backend-shaped validation issues become safe field errors', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ code: 'VALIDATION_FAILED', fields: [
     { field: 'email', code: 'invalid_format' }, { field: 'password', code: 'too_small' }, { field: '', code: 'unrecognized_keys' },
