@@ -41,6 +41,7 @@ export class IdentityService {
     }
     const valid = await verify(user.passwordHash, input.password);
     if (!valid || user.status !== 'ACTIVE') throw new UnauthorizedException({ code: 'INVALID_CREDENTIALS' });
+    if (user.verifiedAt) await this.db.order.updateMany({ where: { userId: null, guestEmail: user.email }, data: { userId: user.id } });
     const { rawSession, csrfSecret } = await this.sessions.create(user);
     return { rawSession, csrfToken: this.csrf.sessionToken(csrfSecret), user: publicUser(user) };
   }

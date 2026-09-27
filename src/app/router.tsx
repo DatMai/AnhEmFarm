@@ -7,6 +7,8 @@ import { AuthPage } from '../features/auth/AuthPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
 import { CartPage } from '../features/cart/CartPage'
 import { CheckoutPage } from '../features/checkout/CheckoutPage'
+import { GuestCheckoutPage, GuestOrderPage } from '../features/checkout/GuestCheckoutPage'
+import { useSession } from '../features/auth/session'
 import { AccountPage } from '../features/account/AccountPage'
 import { AddressesPage } from '../features/account/AddressesPage'
 import { OrdersPage } from '../features/account/OrdersPage'
@@ -30,10 +32,11 @@ export const router = createBrowserRouter([
       { path: '/reset-password', element: <AuthPage mode="reset" /> },
       { path: '/verify-email', element: <VerifyEmailPage /> },
       { path: '/cart', element: <CartPage /> },
+      { path: '/checkout', element: <CheckoutEntry /> },
+      { path: '/guest/orders/:id', element: <GuestOrderPage /> },
       {
         element: <CustomerBoundary />,
         children: [
-          { path: '/checkout', element: <CheckoutPage /> },
           { path: '/account', element: <AccountPage /> },
           { path: '/account/addresses', element: <AddressesPage /> },
           { path: '/account/orders', element: <OrdersPage /> },
@@ -44,3 +47,9 @@ export const router = createBrowserRouter([
     ]
   }
 ])
+
+function CheckoutEntry() {
+  const { user, loading } = useSession()
+  if (loading) return <section className="container section commerce"><p>Loading checkout…</p></section>
+  return user ? <CheckoutPage /> : <GuestCheckoutPage />
+}

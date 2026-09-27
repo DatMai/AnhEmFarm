@@ -135,3 +135,14 @@ button:active:not(:disabled) {
 }
 
 .product-choice-group{display:grid;gap:10px;margin:20px 0;padding:16px;border:1px solid #e8dcd4;border-radius:8px;background:#fffdf9}.product-choice-group legend{padding:0 6px;font-size:15px;font-weight:800}.product-choice-group>p{margin:0;color:#766960;font-size:12px}.product-choice-group label,.variant-select{display:flex;align-items:center;gap:10px;font-size:13px;font-weight:700}.product-choice-group input,.variant-select input{accent-color:#a9273b;width:18px;height:18px}.variant-select{grid-column:1/-1}.variant-list li small{grid-column:1/-1}.detail-purchase{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:22px}.quantity-control{display:flex;align-items:center;border:1px solid #d9cfc7;border-radius:6px;overflow:hidden;background:#fff}.quantity-control button{width:42px;height:44px;border:0;background:#f8f1eb;color:#a9273b;font-size:20px;font-weight:800}.quantity-control button:disabled{opacity:.45}.quantity-control input{width:54px;height:44px;border:0;text-align:center;font-weight:800;color:#342a27}.detail-add-button{min-height:44px;padding:0 22px}.detail-purchase>small{flex-basis:100%;color:#77665e}.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+:where(.guest-cart,.guest-checkout-form){max-width:860px}
+.guest-cart-card h2{margin-top:0}
+.guest-cart-controls{display:flex;align-items:end;gap:12px;flex-wrap:wrap;margin-top:18px}
+.guest-cart-controls label{display:grid;gap:7px;font-size:13px;font-weight:700}
+.guest-cart-controls input{width:96px;min-height:43px;border:1px solid #d9ccc4;border-radius:5px;padding:8px 10px;background:#fffdf9}
+.guest-cart-controls button{min-height:43px;border:1px solid #d9ccc4;border-radius:5px;background:#fffdf9;padding:8px 16px;color:#8d2638;font-weight:700}
+.guest-cart-actions{margin:18px 0}
+.guest-checkout-form .form-field{margin-bottom:18px}
+.guest-age{display:flex;align-items:flex-start;gap:10px;margin:22px 0 16px;font-size:13px;line-height:1.5}
+.guest-age input{margin-top:3px;flex:none}
+.guest-checkout-actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}

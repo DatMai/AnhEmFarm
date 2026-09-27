@@ -27,6 +27,9 @@ import { CheckoutController, OrderPlacementController } from './checkout/checkou
 import { CheckoutService } from './checkout/checkout.service.js';
 import { QuoteService } from './checkout/quote.service.js';
 import { AdminWebController } from './admin-web/admin-web.controller.js';
+import { GuestCheckoutController } from './checkout/guest-checkout.controller.js';
+import { GuestQuoteService } from './checkout/guest-quote.service.js';
+import { GuestSessionService } from './checkout/guest-session.service.js';
 
 @Global()
 @Module({})
@@ -35,8 +38,8 @@ export class AppModule {
     return {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
-      controllers: [AccountController, CustomersController, ReportsController, SettingsController, StoreController, AdminContentController, PublicContentController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
-      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, WebController, AdminWebController, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
+      controllers: [AccountController, CustomersController, ReportsController, SettingsController, StoreController, AdminContentController, PublicContentController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, GuestCheckoutController, OrdersController, AdminOrdersController],
+      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, WebController, AdminWebController, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, GuestQuoteService, GuestSessionService, CheckoutService, OrdersService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { api } from '../../lib/api'
+import { publicKey } from '../../lib/query-client'
 import { useSession } from '../auth/session'
 import { usePrivate, errorText } from '../account/shared'
 import {
@@ -17,22 +19,28 @@ export function CartPage() {
 }
 function GuestCart() {
   const [items, setItems] = useState(loadGuestCart().items)
+  const preview = useQuery({ queryKey: publicKey('guest-cart', JSON.stringify(items)),
+    queryFn: () => api<CartView>('/guest/cart-preview', { method: 'POST', body: { items } }), enabled: items.length > 0 })
   useEffect(() => {
     const sync = () => setItems(loadGuestCart().items)
     window.addEventListener('storage', sync)
     return () => window.removeEventListener('storage', sync)
   }, [])
   return (
-    <section className="container section">
+    <section className="container section commerce guest-cart">
       <h1>Cart</h1>
       {!items.length && <p>Your cart is empty.</p>}
-      {items.map((item) => (
-        <p key={`${item.variantId}:${item.optionId ?? 'none'}`}>
-          Selected variant{' '}
-          <label>
-            Quantity
+      {preview.isPending && items.length > 0 && <p>Loading cart details…</p>}
+      {preview.isError && <p role="alert">Cart details are unavailable. <button onClick={() => void preview.refetch()}>Retry</button></p>}
+      {items.map((item) => {
+        const detail = preview.data?.items.find(line => line.variantId === item.variantId && line.optionId === item.optionId)
+        return <article className="commerce-card guest-cart-card" key={`${item.variantId}:${item.optionId ?? 'none'}`}>
+          <h2>{detail?.productName ?? 'Loading product…'}</h2>
+          {detail && <p>{detail.variantLabel} · {detail.priceVnd === null ? 'Price pending' : formatVnd(detail.priceVnd)}{detail.optionLabel ? ` · ${detail.optionGroupLabel}: ${detail.optionLabel}` : ''}</p>}
+          {detail && !detail.available && <p>Unavailable to order. Remove this item or try again later.</p>}
+          <div className="guest-cart-controls"><label>
+            Quantity for {detail?.productName ?? 'this item'}
             <input
-              aria-label="Guest item quantity"
               type="number"
               min="1"
               max="99"
@@ -48,7 +56,7 @@ function GuestCart() {
                 }
               }}
             />
-          </label>{' '}
+          </label>
           <button
             onClick={() => {
               const next = items.filter((i) => i.variantId !== item.variantId || i.optionId !== item.optionId)
@@ -57,12 +65,14 @@ function GuestCart() {
             }}
           >
             Remove
-          </button>
-        </p>
-      ))}
-      <Link to="/login?next=/cart">
-        Sign in to review your cart and check out
-      </Link>
+          </button></div>
+        </article>
+      })}
+      {items.length > 0 && <div className="guest-cart-actions">{preview.data?.items.every(item => item.available)
+        ? <Link className="button button-primary" to="/checkout">Continue to guest checkout</Link>
+        : <button className="button button-primary" disabled>Continue to guest checkout</button>}</div>}
+      <p>Final item details and totals are confirmed in your server quote.</p>
+      <Link to="/login?next=/cart">Sign in to use your account</Link>
     </section>
   )
 }

@@ -37,33 +37,49 @@ export class CheckoutService {
 
   async place(actor: Actor, quoteId: string, idempotencyKey: string): Promise<Placement> {
     if (!actor) throw new UnauthorizedException();
+    return this.placeFor(actor, null, quoteId, idempotencyKey);
+  }
+
+  async placeGuest(guestSessionId: string, quoteId: string, idempotencyKey: string): Promise<Placement> {
+    return this.placeFor(null, guestSessionId, quoteId, idempotencyKey);
+  }
+
+  private async placeFor(actor: Actor | null, guestSessionId: string | null, quoteId: string, idempotencyKey: string): Promise<Placement> {
     quoteId = parseBody(uuidSchema, quoteId).toLowerCase();
     idempotencyKey = parseBody(uuidSchema, idempotencyKey).toLowerCase();
     const digest = createHash('sha256').update(JSON.stringify({ quoteId })).digest('hex');
-    // All customer mutations acquire this same actor lock first. Together with the
-    // unique keys this serializes both same-key and same-quote contenders.
+    // Lock the account or guest session before placement. Together with the
+    // unique placement keys this serializes same-key and same-quote contenders.
     return withTransaction(this.db, async tx => {
-      await this.identity.assertActiveActor(tx, actor);
-      const keyed = await tx.orderPlacementKey.findUnique({ where: { userId_key: { userId: actor.id, key: idempotencyKey } } });
+      if (actor) await this.identity.assertActiveActor(tx, actor);
+      else {
+        await tx.$queryRaw`SELECT id FROM guest_sessions WHERE id = ${guestSessionId}::uuid FOR UPDATE`;
+        const guest = await tx.guestSession.findUnique({ where: { id: guestSessionId! } });
+        if (!guest || guest.expiresAt <= new Date()) throw new NotFoundException({ code: 'NOT_FOUND' });
+      }
+      const keyed = actor
+        ? await tx.orderPlacementKey.findUnique({ where: { userId_key: { userId: actor.id, key: idempotencyKey } } })
+        : await tx.guestPlacementKey.findUnique({ where: { guestSessionId_key: { guestSessionId: guestSessionId!, key: idempotencyKey } } });
       if (keyed) {
         if (keyed.requestDigest !== digest) conflict('IDEMPOTENCY_CONFLICT');
         return this.replay(tx, keyed.orderId);
       }
-      const quoteRef = await tx.checkoutQuote.findFirst({ where: { id: quoteId, userId: actor.id } });
+      const quoteRef = await tx.checkoutQuote.findFirst({ where: { id: quoteId, ...(actor ? { userId: actor.id } : { guestSessionId }) } });
       if (!quoteRef) throw new NotFoundException({ code: 'NOT_FOUND' });
-      const user = await tx.user.findUniqueOrThrow({ where: { id: actor.id } });
-      if (!user.verifiedAt) throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED' });
+      const user = actor ? await tx.user.findUniqueOrThrow({ where: { id: actor.id } }) : null;
+      if (user && !user.verifiedAt) throw new ForbiddenException({ code: 'EMAIL_NOT_VERIFIED' });
       await tx.$queryRaw`SELECT id FROM store_settings ORDER BY id LIMIT 1 FOR UPDATE`;
       const settings = await tx.storeSettings.findFirst({ orderBy: { id: 'asc' } });
       await tx.$queryRaw`SELECT id FROM shipping_zones WHERE id = ${quoteRef.shippingZoneId}::uuid FOR UPDATE`;
       const zone = await tx.shippingZone.findUniqueOrThrow({ where: { id: quoteRef.shippingZoneId } });
-      await tx.$queryRaw`SELECT id FROM carts WHERE "userId" = ${actor.id}::uuid FOR UPDATE`;
-      const cart = await tx.cart.findUnique({ where: { userId: actor.id } });
+      if (actor) await tx.$queryRaw`SELECT id FROM carts WHERE "userId" = ${actor.id}::uuid FOR UPDATE`;
+      const cart = actor ? await tx.cart.findUnique({ where: { userId: actor.id } }) : null;
       await tx.$queryRaw`SELECT id FROM checkout_quotes WHERE id = ${quoteId}::uuid FOR UPDATE`;
       const quote = await tx.checkoutQuote.findUniqueOrThrow({ where: { id: quoteId } });
       const existing = await tx.order.findUnique({ where: { quoteId } });
       if (existing) {
-        await tx.orderPlacementKey.create({ data: { userId: actor.id, key: idempotencyKey, requestDigest: digest, orderId: existing.id } });
+        if (actor) await tx.orderPlacementKey.create({ data: { userId: actor.id, key: idempotencyKey, requestDigest: digest, orderId: existing.id } });
+        else await tx.guestPlacementKey.create({ data: { guestSessionId: guestSessionId!, key: idempotencyKey, requestDigest: digest, orderId: existing.id } });
         return this.replay(tx, existing.id);
       }
       if (quote.status !== 'OPEN' || quote.expiresAt <= new Date()) conflict('QUOTE_EXPIRED');
@@ -103,26 +119,27 @@ export class CheckoutService {
         const changed = await tx.variant.updateMany({ where: { id: variantId, stock: { gte: quantity } }, data: { stock: { decrement: quantity }, version: { increment: 1 } } });
         if (changed.count !== 1) conflict('OUT_OF_STOCK');
       }
-      const cartPreserved = !cart || cart.version !== quote.cartVersion;
+      const cartPreserved = actor ? (!cart || cart.version !== quote.cartVersion) : false;
       const items = lines.map(line => ({ variantId: line.variantId, optionGroupLabel: line.optionGroupLabel, optionLabel: line.optionLabel,
         selectionKey: line.optionId?.toLowerCase() ?? 'none', name: line.productName, sku: line.sku, label: line.variantLabel, priceVnd: line.priceVnd, quantity: line.quantity }));
-      const order = await tx.order.create({ data: { userId: actor.id, quoteId, idempotencyKey, requestDigest: digest,
+      const order = await tx.order.create({ data: { userId: actor?.id, guestSessionId, guestEmail: quote.guestEmail, quoteId, idempotencyKey, requestDigest: digest,
         subtotalVnd: subtotal, shippingVnd: zone.feeVnd, totalVnd: total, recipientJson: json(quote.addressJson), cartPreserved,
         items: { create: items.map(item => ({ ...item, priceVnd: BigInt(item.priceVnd) })) } } });
-      await tx.orderPlacementKey.create({ data: { userId: actor.id, key: idempotencyKey, requestDigest: digest, orderId: order.id } });
-      const event = await tx.orderEvent.create({ data: { orderId: order.id, actorId: actor.id, toStatus: 'PENDING', detailsJson: {}, operationKey: 'placement', payloadDigest: digest, resultJson: {} } });
+      if (actor) await tx.orderPlacementKey.create({ data: { userId: actor.id, key: idempotencyKey, requestDigest: digest, orderId: order.id } });
+      else await tx.guestPlacementKey.create({ data: { guestSessionId: guestSessionId!, key: idempotencyKey, requestDigest: digest, orderId: order.id } });
+      const event = await tx.orderEvent.create({ data: { orderId: order.id, actorId: actor?.id, toStatus: 'PENDING', detailsJson: {}, operationKey: 'placement', payloadDigest: digest, resultJson: {} } });
       const result: Placement = { order: { id: order.id, status: order.status, collectionState: order.collectionState, items, recipient: quote.addressJson,
         ...totals, createdAt: order.createdAt.toISOString(), events: [{ id: event.id, fromStatus: null, toStatus: 'PENDING', reason: null, createdAt: event.createdAt.toISOString() }] }, cartPreserved };
       await tx.orderEvent.update({ where: { id: event.id }, data: { resultJson: json(result) } });
-      for (const [variantId, quantity] of quantities) await tx.inventoryMovement.create({ data: { variantId, delta: -quantity, actorId: actor.id,
+      for (const [variantId, quantity] of quantities) await tx.inventoryMovement.create({ data: { variantId, delta: -quantity, actorId: actor?.id,
         orderId: order.id, reason: 'COD order placed', operationKey: `order:${order.id}:${variantId}`, payloadDigest: digest, resultJson: { orderId: order.id } } });
       await tx.checkoutQuote.update({ where: { id: quoteId }, data: { status: 'USED', version: { increment: 1 } } });
-      if (!cartPreserved) {
+      if (actor && !cartPreserved) {
         await tx.cartItem.deleteMany({ where: { cartId: cart!.id, variantId: { in: ids } } });
         await tx.cart.update({ where: { id: cart!.id }, data: { version: { increment: 1 } } });
       }
-      await tx.auditLog.create({ data: { actorId: actor.id, action: 'ORDER_PLACED', targetType: 'Order', targetId: order.id, changesJson: { status: 'PENDING', totalVnd: totals.totalVnd } } });
-      await this.outbox.enqueue(tx, { dedupeKey: `order-created:${order.id}`, recipient: user.email, template: 'ORDER_CREATED', payload: { orderId: order.id, totalVnd: totals.totalVnd } });
+      await tx.auditLog.create({ data: { actorId: actor?.id, action: 'ORDER_PLACED', targetType: 'Order', targetId: order.id, changesJson: { status: 'PENDING', totalVnd: totals.totalVnd } } });
+      await this.outbox.enqueue(tx, { dedupeKey: `order-created:${order.id}`, recipient: user?.email ?? quote.guestEmail!, template: 'ORDER_CREATED', payload: { orderId: order.id, totalVnd: totals.totalVnd } });
       return result;
     });
   }

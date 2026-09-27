@@ -247,8 +247,9 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
       ? route.fulfill({ status: 503, json: {} })
       : route.continue())
     await page.reload()
-    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Guest checkout' })).toBeVisible()
     failSessionRead = false
+    await page.goto('/login?next=/account')
     await page.getByLabel('Email').fill(email)
     await page.getByLabel('Password', { exact: true }).fill(password)
     await page.getByRole('button', { name: 'Sign in', exact: true }).click()
