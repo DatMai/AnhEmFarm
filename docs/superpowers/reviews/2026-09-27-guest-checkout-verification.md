@@ -28,7 +28,7 @@ The real Chromium journey in `e2e/guest-checkout.spec.ts` passed as an anonymous
 - `git diff --check`: exit 0. The self-review checked cookie scope, quote tampering, inventory aggregation, placement replay, seller visibility and email recipient routing. No independent agent review was requested or claimed.
 - Earlier full E2E runs exposed persistent `_test` rate-bucket exhaustion and an outdated session-expiry expectation; test fixture rates and the expectation were corrected before the final green run. A Mailpit selection race was also corrected by looking up the exact recipient.
 
-PR URL will be recorded in the handoff after creation.
+[PR #7](https://github.com/DatMai/AnhEmFarm/pull/7) targets `main` from `feat/guest-checkout-account-linking` and is open for owner review; it has not been merged.
 
 ## Limits
 
