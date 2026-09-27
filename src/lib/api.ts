@@ -30,6 +30,7 @@ const messages: Record<string, string> = {
   VARIANT_UNAVAILABLE: 'An item is unavailable. Please review your cart.',
   VALIDATION_FAILED: 'Please check the highlighted fields.',
   CSRF_REJECTED: 'Your session expired. Please try again.',
+  ORIGIN_REJECTED: 'Open the app using its configured address and try again.',
   RATE_LIMITED: 'Too many attempts. Please try again later.',
   UNAVAILABLE: 'The service is temporarily unavailable.',
   REQUEST_FAILED: 'We could not complete your request.',

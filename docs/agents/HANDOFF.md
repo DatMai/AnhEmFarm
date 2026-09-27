@@ -2,6 +2,12 @@
 
 Updated: 2026-09-27.
 
+## Registration host origin — 2026-09-27
+
+PR #7 has been merged into `main` at `745ee90`; the owner's primary checkout was fast-forwarded and its local development database received the two guest-checkout migrations. A registration regression was reproduced when opening the app on `localhost` while `APP_ORIGIN` used `127.0.0.1`. The bug fix is isolated on `fix/registration-localhost-origin`, based on that merge. Development and test accept equivalent loopback host aliases only when scheme and port match; production remains exact-origin only. The frontend now explains origin rejection, and local-development docs explain host selection. Review and verification evidence: `docs/superpowers/reviews/2026-09-27-registration-origin-verification.md`.
+
+Fresh verification: `npm run verify` passed client/SSR/API builds, 20 frontend tests, and 172 backend tests. The first full run exposed stale guest IP rate-limit entries in the shared `_test` database; the guest integration suite now clears only its own two test buckets before/after the suite. The rerun passed. The focused browser journey registered, verified through local Mailpit, and signed in a synthetic QA customer. Credentials are in the owner conversation only, not tracked files. The local QA user is synthetic and exists only in the development database. The registration-origin PR is being prepared from this branch; do not describe it as merged until the owner merges it.
+
 ## Guest checkout and account linking — 2026-09-27
 
 PR #6 was merged into `main` at `3e6fbcf`. The owner then approved an immediate guest checkout with later account synchronization, explicitly authorizing autonomous implementation decisions and no further questions. Work is isolated in the managed worktree on `feat/guest-checkout-account-linking`; the owner's `main` preview remains untouched. The discovery, written design and inline implementation plan are `docs/superpowers/discovery/2026-09-27-guest-checkout-account-linking.md`, `docs/superpowers/specs/2026-09-27-guest-checkout-account-linking-design.md`, and `docs/superpowers/plans/2026-09-27-guest-checkout-account-linking.md`. This records advance owner authorization, not a separate response to each document review.

@@ -4,11 +4,24 @@ import { startHarness, type Harness } from './harness.js';
 import { seedScenario } from './fixtures.js';
 import { OutboxService } from '../src/email/outbox.service.js';
 import { EmailWorker, RecordingEmailTransport } from '../src/email/email.worker.js';
+import { readConfig } from '../src/config.js';
+import { rateKey } from '../src/http/request-context.js';
 
 describe('guest COD checkout and verified account linking', () => {
   let h: Harness;
-  beforeAll(async () => { h = await startHarness({ ratePolicies: { guestOrderIp: { limit: 10000, windowMs: 60 * 60_000 }, registrationIp: { limit: 10000, windowMs: 60 * 60_000 } } }); });
-  afterAll(async () => { await h?.close(); });
+  const guestRateKeys = ['guestQuoteIp', 'guestOrderIp'].map(scope => rateKey(readConfig(), scope, '127.0.0.1'));
+  beforeAll(async () => {
+    h = await startHarness({ ratePolicies: {
+      guestQuoteIp: { limit: 10000, windowMs: 60 * 60_000 },
+      guestOrderIp: { limit: 10000, windowMs: 60 * 60_000 },
+      registrationIp: { limit: 10000, windowMs: 60 * 60_000 },
+    } });
+    await h.db.rateBucket.deleteMany({ where: { key: { in: guestRateKeys } } });
+  });
+  afterAll(async () => {
+    if (h) await h.db.rateBucket.deleteMany({ where: { key: { in: guestRateKeys } } });
+    await h?.close();
+  });
 
   it('previews an anonymous cart with current names, prices, and availability', async () => {
     const s = await seedScenario(h.db);
