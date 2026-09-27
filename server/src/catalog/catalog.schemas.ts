@@ -24,6 +24,24 @@ export const productPatch = z.strictObject({ expectedVersion: version, slug: slu
   description: description.optional(), categoryId: z.uuid().optional(), confirmed: z.boolean().optional(),
   restricted18: z.boolean().optional(), status: z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED']).optional(),
 });
+const choiceLabel = z.string().trim().min(1).max(80);
+export const choiceGroupUpdate = z.strictObject({
+  expectedVersion: version,
+  label: choiceLabel.nullable(),
+  choices: z.array(z.strictObject({ id: z.uuid().optional(), label: choiceLabel, active: z.boolean() })).max(60),
+}).superRefine((value, context) => {
+  if (value.label === null && value.choices.length > 0)
+    context.addIssue({ code: 'custom', path: ['choices'], message: 'Choices must be empty when the group is disabled.' });
+  if (value.label !== null && value.choices.every(choice => !choice.active))
+    context.addIssue({ code: 'custom', path: ['choices'], message: 'An active group needs at least one active choice.' });
+  if (value.choices.filter(choice => choice.active).length > 12)
+    context.addIssue({ code: 'custom', path: ['choices'], message: 'At most 12 choices may be active.' });
+  if (new Set(value.choices.flatMap(choice => choice.id ? [choice.id] : [])).size !== value.choices.filter(choice => choice.id).length)
+    context.addIssue({ code: 'custom', path: ['choices'], message: 'Choice IDs must be unique.' });
+  const labels = value.choices.map(choice => choice.label.toLocaleLowerCase('en-US'));
+  if (new Set(labels).size !== labels.length)
+    context.addIssue({ code: 'custom', path: ['choices'], message: 'Choice labels must be unique.' });
+});
 export const variantCreate = z.strictObject({ sku, label, packDetails, priceVnd, saleEnabled: z.boolean() });
 export const variantPatch = z.strictObject({ expectedVersion: version, sku: sku.optional(), label: label.optional(),
   packDetails: packDetails.optional(), priceVnd: priceVnd.optional(), saleEnabled: z.boolean().optional(),

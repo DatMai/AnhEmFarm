@@ -27,7 +27,7 @@ function GuestCart() {
       <h1>Cart</h1>
       {!items.length && <p>Your cart is empty.</p>}
       {items.map((item) => (
-        <p key={item.variantId}>
+        <p key={`${item.variantId}:${item.optionId ?? 'none'}`}>
           Selected variant{' '}
           <label>
             Quantity
@@ -41,7 +41,7 @@ function GuestCart() {
                 const n = Number(e.target.value)
                 if (Number.isInteger(n) && n >= 1 && n <= 99) {
                   const next = items.map((i) =>
-                    i.variantId === item.variantId ? { ...i, quantity: n } : i
+                    i.variantId === item.variantId && i.optionId === item.optionId ? { ...i, quantity: n } : i
                   )
                   saveGuestCart(next)
                   setItems(next)
@@ -51,7 +51,7 @@ function GuestCart() {
           </label>{' '}
           <button
             onClick={() => {
-              const next = items.filter((i) => i.variantId !== item.variantId)
+              const next = items.filter((i) => i.variantId !== item.variantId || i.optionId !== item.optionId)
               saveGuestCart(next)
               setItems(next)
             }}
@@ -100,7 +100,7 @@ function AccountCart() {
         <button onClick={() => void query.refetch()}>Retry cart</button>
       )}
       {query.data?.items.map((item) => (
-        <article className="commerce-card" key={item.variantId}>
+        <article className="commerce-card" key={`${item.variantId}:${item.optionId ?? 'none'}`}>
           <h2>{item.productName}</h2>
           <p>
             {item.variantLabel} ·{' '}
@@ -108,6 +108,7 @@ function AccountCart() {
               ? 'Price pending'
               : formatVnd(item.priceVnd)}
           </p>
+          {item.optionLabel && <p>{item.optionGroupLabel}: {item.optionLabel}</p>}
           {!item.available && (
             <p>Unavailable to order. Remove this item or try again later.</p>
           )}
@@ -119,7 +120,7 @@ function AccountCart() {
               min="1"
               max="99"
               defaultValue={item.quantity}
-              key={`${item.variantId}:${query.data.version}`}
+              key={`${item.variantId}:${item.optionId ?? 'none'}:${query.data.version}`}
               disabled={busy}
               onBlur={(e) => {
                 const n = Number(e.target.value)
@@ -130,7 +131,7 @@ function AccountCart() {
                 }
                 if (n !== item.quantity)
                   void edit(() =>
-                    setCartItem(item.variantId, n, query.data!.version)
+                    setCartItem(item.variantId, n, query.data!.version, item.optionId)
                   )
               }}
             />
@@ -139,7 +140,7 @@ function AccountCart() {
             disabled={busy}
             onClick={() =>
               void edit(() =>
-                removeCartItem(item.variantId, query.data!.version)
+                removeCartItem(item.variantId, query.data!.version, item.optionId)
               )
             }
           >

@@ -69,8 +69,9 @@ export function webRouter(web: WebController) {
   router.get(['/', '/products', '/products/:slug', '/about', '/contact', '/policies/:slug'], (req, res, next) => handle(web.publicPage(req, res), next));
   router.get('/robots.txt', (_req, res) => web.robots(res));
   router.get('/sitemap.xml', (_req, res, next) => handle(web.sitemap(res), next));
-  router.get(['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/cart', '/checkout', '/account', '/account/addresses', '/account/orders', '/account/orders/:id', '/admin', '/admin/*path'], (_req, res, next) => handle(web.privateShell(res), next));
+  router.get(['/login', '/register', '/forgot-password', '/reset-password', '/verify-email', '/cart', '/checkout', '/account', '/account/addresses', '/account/orders', '/account/orders/:id'], (_req, res, next) => handle(web.privateShell(res), next));
   router.get(/.*/, (req, res, next) => {
+    if (req.path === '/admin' || req.path.startsWith('/admin/')) return next();
     if (/^\/(api|health|assets|images)(\/|$)/.test(req.path) || /\.[a-z0-9]{2,6}$/i.test(req.path)) return next();
     handle(web.notFound(req, res), next);
   });

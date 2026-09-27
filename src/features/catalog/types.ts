@@ -2,7 +2,7 @@ export type Page<T> = { items: T[]; page: number; pageSize: number; total: numbe
 export type Category = { id: string; slug: string; name: string }
 export type Media = { id: string; objectKey: string; illustrative: boolean }
 export type ProductSummary = { id: string; slug: string; name: string; category: Category; images: Media[]; startingPriceVnd: number | null; purchasable: boolean; confirmed: boolean }
-export type ProductDetail = ProductSummary & { description: string; restricted18: boolean; variants: { id: string; label: string; packDetails: string; priceVnd: number | null; inStock: boolean; saleEnabled: boolean }[] }
+export type ProductDetail = ProductSummary & { description: string; restricted18: boolean; choiceGroup: { id: string; label: string; choices: { id: string; label: string }[] } | null; variants: { id: string; label: string; packDetails: string; priceVnd: number | null; inStock: boolean; saleEnabled: boolean }[] }
 const previewArtwork: Record<string, string> = {
   'demo-fresh-mulberries': '/images/mulberry-hero.jpg',
   'demo-mulberry-jam': '/images/jam.jpg',

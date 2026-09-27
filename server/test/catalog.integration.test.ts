@@ -3,13 +3,21 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startHarness, type Harness } from './harness.js';
 import { seedScenario, type Scenario } from './fixtures.js';
 import { canPurchase, CatalogService } from '../src/catalog/catalog.service.js';
+import { readConfig } from '../src/config.js';
+import { rateKey } from '../src/http/request-context.js';
 
 describe('catalog', () => {
   let h: Harness;
   let s: Scenario;
   const tag = randomUUID().slice(0, 8);
-  beforeAll(async () => { h = await startHarness(); s = await seedScenario(h.db); });
-  afterAll(async () => { await h?.close(); });
+  const loginRateKeys = () => ['loginIp', 'registrationIp'].map(scope => rateKey(readConfig(), scope, '127.0.0.1'));
+  const clearLoginRateBuckets = async () => {
+    if (!h || !s) return;
+    const pairKeys = [s.admin.email, s.customer.email].map(email => rateKey(readConfig(), 'loginPair', `127.0.0.1:${email}`));
+    await h.db.rateBucket.deleteMany({ where: { key: { in: [...loginRateKeys(), ...pairKeys] } } });
+  };
+  beforeAll(async () => { h = await startHarness(); s = await seedScenario(h.db); await clearLoginRateBuckets(); });
+  afterAll(async () => { await clearLoginRateBuckets(); await h?.close(); });
   async function admin() {
     const c = h.client();
     expect((await c.request('POST', '/api/v1/auth/login', { email: s.admin.email, password: s.admin.password })).status).toBe(200);
@@ -72,6 +80,64 @@ describe('catalog', () => {
     expect((await c.request('POST', '/api/v1/auth/login', { email: s.customer.email, password: s.customer.password })).status).toBe(200);
     expect((await c.request('POST', '/api/v1/admin/products', { name: 'Attempt' })).status).toBe(403);
     expect((await h.client().request('GET', '/api/v1/admin/products')).status).toBe(401);
+  });
+  it('lets an admin version and audit one product choice group while preserving stable inactive choices', async () => {
+    const product = await h.db.product.findUniqueOrThrow({ where: { id: s.product.id } });
+    const customer = h.client();
+    expect((await customer.request('POST', '/api/v1/auth/login', { email: s.customer.email, password: s.customer.password })).status).toBe(200);
+    expect((await customer.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: product.version, label: 'Sweetness', choices: [{ label: 'Original', active: true }],
+    })).status).toBe(403);
+
+    const adminClient = await admin();
+    const create = await adminClient.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: product.version, label: 'Sweetness', choices: [
+        { label: 'Original', active: true }, { label: 'Less sweet', active: true }, { label: 'Unsweetened', active: true },
+      ],
+    });
+    expect(create.status).toBe(200);
+    expect(create.body).toMatchObject({ version: product.version + 1, choiceGroup: { label: 'Sweetness' } });
+    expect(create.body.choiceGroup.choices.map((choice: { label: string; active: boolean }) => [choice.label, choice.active])).toEqual([
+      ['Original', true], ['Less sweet', true], ['Unsweetened', true],
+    ]);
+    expect((await adminClient.request('GET', `/api/v1/admin/products/${product.id}`)).body.choiceGroup)
+      .toMatchObject({ label: 'Sweetness', choices: [{ label: 'Original', active: true }, { label: 'Less sweet', active: true }, { label: 'Unsweetened', active: true }] });
+    expect((await h.request('GET', `/api/v1/products/${s.product.slug}`)).body.choiceGroup)
+      .toMatchObject({ label: 'Sweetness', choices: [{ label: 'Original' }, { label: 'Less sweet' }, { label: 'Unsweetened' }] });
+
+    const groupId = create.body.choiceGroup.id;
+    const choices = create.body.choiceGroup.choices as Array<{ id: string; label: string }>;
+    const update = await adminClient.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: create.body.version, label: 'Sweetness level',
+      choices: [{ id: choices[0].id, label: 'Original', active: true }],
+    });
+    expect(update.status).toBe(200);
+    expect(update.body).toMatchObject({ version: create.body.version + 1, choiceGroup: { id: groupId, label: 'Sweetness level' } });
+    expect(update.body.choiceGroup.choices).toEqual(expect.arrayContaining([
+      expect.objectContaining({ id: choices[0].id, active: true }),
+      expect.objectContaining({ id: choices[1].id, active: false }),
+      expect.objectContaining({ id: choices[2].id, active: false }),
+    ]));
+    expect(await h.db.auditLog.count({ where: { targetType: 'Product', targetId: product.id, action: 'PRODUCT_CHOICES_UPDATED' } })).toBe(2);
+
+    const invalid = await adminClient.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: update.body.version, label: 'Sweetness', choices: [
+        { label: 'Same', active: true }, { label: ' same ', active: true },
+      ],
+    });
+    expect(invalid.status).toBe(422);
+    const noActiveChoice = await adminClient.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: update.body.version, label: 'Sweetness', choices: [{ label: 'Archived', active: false }],
+    });
+    expect(noActiveChoice.status).toBe(422);
+    const otherProduct = await h.db.product.create({ data: { categoryId: product.categoryId,
+      slug: `foreign-choice-${tag}`, name: 'Foreign choice fixture', description: 'Ownership test' } });
+    const foreignGroup = await h.db.productChoiceGroup.create({ data: { productId: otherProduct.id, label: 'Grind' } });
+    const foreignChoice = await h.db.productChoice.create({ data: { groupId: foreignGroup.id, label: 'Ground', sortPosition: 0 } });
+    const wrongOwner = await adminClient.request('PUT', `/api/v1/admin/products/${product.id}/choice-group`, {
+      expectedVersion: update.body.version, label: 'Sweetness', choices: [{ id: foreignChoice.id, label: 'Ground', active: true }],
+    });
+    expect(wrongOwner.status).toBe(422);
   });
   it('creates audited products, validates publication, rejects stale versions and archives without deleting', async () => {
     const c = await admin();

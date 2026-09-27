@@ -38,7 +38,7 @@ export class CsrfGuard {
   }
 
   valid(request: SessionCsrfRequest): boolean {
-    const token = request.header('x-csrf-token') ?? '';
+    const token = request.header('x-csrf-token') ?? (typeof request.body?._csrf === 'string' ? request.body._csrf : '');
     if (!/^[a-f0-9]{64}$/.test(token)) return false;
     // A session always uses its own secret. A pending session lookup must never fall back to anonymous CSRF.
     if (request.sessionCsrfSecret) return equal(token, mac(this.config.sessionSecret, 'session', request.sessionCsrfSecret));

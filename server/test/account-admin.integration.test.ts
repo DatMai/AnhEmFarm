@@ -278,6 +278,10 @@ describe("accounts, customer administration and reports", () => {
     await expect(reports.summary({ from, to: from })).rejects.toMatchObject({
       status: 422,
     });
+    await h.db.order.update({
+      where: { id: ids[0] },
+      data: { totalVnd: 130000n, subtotalVnd: 100000n },
+    });
   });
   it("suspension commits while checkout waits on the customer row and rejects placement", async () => {
     const s = await seedScenario(h.db);

@@ -13,7 +13,7 @@ import type { QuoteView } from './quote.service.js';
 
 export interface OrderView {
   id: string; status: string; collectionState: string;
-  items: Array<{ variantId: string; name: string; sku: string; label: string; priceVnd: number; quantity: number }>;
+  items: Array<{ variantId: string; optionGroupLabel: string | null; optionLabel: string | null; name: string; sku: string; label: string; priceVnd: number; quantity: number }>;
   recipient: Prisma.JsonValue; subtotalVnd: number; shippingVnd: number; totalVnd: number; createdAt: string;
   events: Array<{ id: string; fromStatus: string | null; toStatus: string; reason: string | null; createdAt: string }>;
 }
@@ -70,32 +70,42 @@ export class CheckoutService {
       if (!settings?.salesEnabled || (this.config.mode === 'production' && !this.config.salesEnabled)) conflict('SALES_DISABLED');
       if (!zone.enabled || zone.version !== quote.shippingZoneVersion || zone.feeVnd !== quote.feeVnd) conflict('SHIPPING_CHANGED');
       const lines = quote.linesJson as unknown as QuoteView['items'];
-      const ids = lines.map(line => line.variantId).sort();
+      const ids = [...new Set(lines.map(line => line.variantId))].sort();
       const refs = await tx.variant.findMany({ where: { id: { in: ids } }, select: { productId: true } });
       // Match catalog mutations: product rows before sorted variants, including
       // variant insertion. Re-read all commercial data only after these locks.
       for (const productId of [...new Set(refs.map(ref => ref.productId))].sort())
         await tx.$queryRaw`SELECT id FROM products WHERE id = ${productId}::uuid FOR UPDATE`;
       for (const id of ids) await tx.$queryRaw`SELECT id FROM variants WHERE id = ${id}::uuid FOR UPDATE`;
-      const variants = await tx.variant.findMany({ where: { id: { in: ids } }, include: { product: true } });
+      const variants = await tx.variant.findMany({ where: { id: { in: ids } }, include: { product: { include: { choiceGroup: true } } } });
       if (quote.expiresAt <= new Date()) conflict('QUOTE_EXPIRED');
       const byId = new Map(variants.map(v => [v.id, v]));
+      const choices = new Map((await tx.productChoice.findMany({ where: { id: { in: lines.flatMap(line => line.optionId ? [line.optionId] : []) } }, include: { group: true } })).map(choice => [choice.id, choice]));
+      const quantities = new Map<string, number>();
       let subtotal = 0n;
       for (const line of lines) {
         const v = byId.get(line.variantId);
         if (!v || v.commercialVersion !== line.commercialVersion || v.product.version !== line.productVersion || v.priceVnd !== BigInt(line.priceVnd)) conflict('QUOTE_CHANGED');
-        if (v!.stock < line.quantity) conflict('OUT_OF_STOCK');
+        quantities.set(line.variantId, (quantities.get(line.variantId) ?? 0) + line.quantity);
+        if (v!.product.choiceGroup?.active) {
+          const choice = line.optionId ? choices.get(line.optionId) : undefined;
+          if (!choice || !choice.active || !choice.group.active || choice.groupId !== v!.product.choiceGroup.id || choice.group.productId !== v!.product.id ||
+            choice.group.label !== line.optionGroupLabel || choice.label !== line.optionLabel) conflict('QUOTE_CHANGED');
+        } else if (line.optionId) conflict('QUOTE_CHANGED');
+        if (v!.stock <= 0) conflict('OUT_OF_STOCK');
         if (!canPurchase(v!.product, v!, settings!) || (v!.product.restricted18 && !quote.ageConfirmed)) conflict('QUOTE_CHANGED');
         subtotal += v!.priceVnd! * BigInt(line.quantity);
       }
+      for (const [variantId, quantity] of quantities) if (byId.get(variantId)!.stock < quantity) conflict('OUT_OF_STOCK');
       const total = subtotal + zone.feeVnd;
       const totals = { subtotalVnd: safe(subtotal), shippingVnd: safe(zone.feeVnd), totalVnd: safe(total) };
-      for (const line of lines) {
-        const changed = await tx.variant.updateMany({ where: { id: line.variantId, stock: { gte: line.quantity } }, data: { stock: { decrement: line.quantity }, version: { increment: 1 } } });
+      for (const [variantId, quantity] of quantities) {
+        const changed = await tx.variant.updateMany({ where: { id: variantId, stock: { gte: quantity } }, data: { stock: { decrement: quantity }, version: { increment: 1 } } });
         if (changed.count !== 1) conflict('OUT_OF_STOCK');
       }
       const cartPreserved = !cart || cart.version !== quote.cartVersion;
-      const items = lines.map(line => ({ variantId: line.variantId, name: line.productName, sku: line.sku, label: line.variantLabel, priceVnd: line.priceVnd, quantity: line.quantity }));
+      const items = lines.map(line => ({ variantId: line.variantId, optionGroupLabel: line.optionGroupLabel, optionLabel: line.optionLabel,
+        selectionKey: line.optionId?.toLowerCase() ?? 'none', name: line.productName, sku: line.sku, label: line.variantLabel, priceVnd: line.priceVnd, quantity: line.quantity }));
       const order = await tx.order.create({ data: { userId: actor.id, quoteId, idempotencyKey, requestDigest: digest,
         subtotalVnd: subtotal, shippingVnd: zone.feeVnd, totalVnd: total, recipientJson: json(quote.addressJson), cartPreserved,
         items: { create: items.map(item => ({ ...item, priceVnd: BigInt(item.priceVnd) })) } } });
@@ -104,8 +114,8 @@ export class CheckoutService {
       const result: Placement = { order: { id: order.id, status: order.status, collectionState: order.collectionState, items, recipient: quote.addressJson,
         ...totals, createdAt: order.createdAt.toISOString(), events: [{ id: event.id, fromStatus: null, toStatus: 'PENDING', reason: null, createdAt: event.createdAt.toISOString() }] }, cartPreserved };
       await tx.orderEvent.update({ where: { id: event.id }, data: { resultJson: json(result) } });
-      for (const line of lines) await tx.inventoryMovement.create({ data: { variantId: line.variantId, delta: -line.quantity, actorId: actor.id,
-        orderId: order.id, reason: 'COD order placed', operationKey: `order:${order.id}:${line.variantId}`, payloadDigest: digest, resultJson: { orderId: order.id } } });
+      for (const [variantId, quantity] of quantities) await tx.inventoryMovement.create({ data: { variantId, delta: -quantity, actorId: actor.id,
+        orderId: order.id, reason: 'COD order placed', operationKey: `order:${order.id}:${variantId}`, payloadDigest: digest, resultJson: { orderId: order.id } } });
       await tx.checkoutQuote.update({ where: { id: quoteId }, data: { status: 'USED', version: { increment: 1 } } });
       if (!cartPreserved) {
         await tx.cartItem.deleteMany({ where: { cartId: cart!.id, variantId: { in: ids } } });

@@ -5,7 +5,7 @@ import { FormField } from '../../components/FormField'
 import { useSession } from './session'
 type Mode = 'login' | 'register' | 'forgot' | 'reset'
 const titles: Record<Mode, string> = { login: 'Sign in', register: 'Create account', forgot: 'Forgot password', reset: 'Reset password' }
-function localNext(value: string | null): string { return value && /^\/(?:products(?:\/[a-z0-9-]+)?|account|cart|checkout)(?:\?.*)?$/.test(value) ? value : '/' }
+function localNext(value: string | null): string { return value && /^\/(?:products(?:\/[a-z0-9-]+)?|account|cart|checkout|admin(?:\/orders(?:\/[0-9a-f-]+)?|\/products(?:\/[0-9a-f-]+)?|\/categories|\/customers|\/inventory|\/settings|\/reports|\/content|\/audit|\/email-jobs)?)(?:\?.*)?$/.test(value) ? value : '/' }
 export function AuthPage({ mode }: { mode: Mode }) {
   const [params] = useSearchParams(), navigate = useNavigate(), session = useSession()
   const mailpitUrl = import.meta.env.DEV ? `${window.location.protocol}//${window.location.hostname}:8025/` : null
@@ -15,7 +15,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     event.preventDefault(); if (busy) return
     setBusy(true); setMessage(''); setError(''); setFields({})
     try {
-      if (mode === 'login') { await session.login(values.email, values.password); navigate(localNext(params.get('next')), { replace: true }) }
+      if (mode === 'login') { await session.login(values.email, values.password); const next = localNext(params.get('next')); if (next === '/admin' || next.startsWith('/admin/')) { window.location.assign(next); return } navigate(next, { replace: true }) }
       else if (mode === 'register') { await api('/auth/register', { method: 'POST', body: values }); setMessage(mailpitUrl ? 'If your registration is accepted, open Mailpit for the local verification link.' : 'If your registration is accepted, check your email for a verification link.') }
       else if (mode === 'forgot') { await api('/auth/forgot-password', { method: 'POST', body: { email: values.email } }); setMessage('If this address has an account, a reset link will be sent.') }
       else { const token = params.get('token'); if (!token) throw new ApiError(400, 'TOKEN_MISSING', 'This reset link is invalid.'); await api('/auth/reset-password', { method: 'POST', body: { token, password: values.password } }); window.history.replaceState({}, '', '/reset-password'); setMessage('Password changed. You can now sign in.') }

@@ -12,6 +12,17 @@ describe('guest cart storage', () => {
     localStorage.setItem('anhemfarm.guestCart', JSON.stringify({ version: 1, items: [{ variantId: id, quantity: 100 }] }))
     expect(loadGuestCart().items).toEqual([])
   })
+  it('upgrades valid version one items without losing quantity', () => {
+    localStorage.setItem('anhemfarm.guestCart', JSON.stringify({ version: 1, items: [{ variantId: id, quantity: 3 }] }))
+    expect(loadGuestCart()).toMatchObject({ version: 2, items: [{ variantId: id, quantity: 3, optionId: null }] })
+    expect(JSON.parse(localStorage.getItem('anhemfarm.guestCart')!).version).toBe(2)
+  })
+  it('preserves an in-flight version one merge key during upgrade', () => {
+    const pendingMerge = { key: crypto.randomUUID(), items: [{ variantId: id, quantity: 3 }] }
+    localStorage.setItem('anhemfarm.guestCart', JSON.stringify({ version: 1, items: pendingMerge.items, pendingMerge }))
+    expect(loadGuestCart().pendingMerge).toMatchObject({ key: pendingMerge.key, items: [{ optionId: null }] })
+    expect(prepareGuestMerge()?.key).toBe(pendingMerge.key)
+  })
   it('retries the same snapshot and key, then clears only after success', () => {
     saveGuestCart([{ variantId: id, quantity: 2 }])
     const first = prepareGuestMerge()

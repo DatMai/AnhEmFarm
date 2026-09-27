@@ -89,8 +89,8 @@ export function OrderDetailPage() {
           </p>
           <h2>Items</h2>
           {o.items.map((i) => (
-            <p key={i.variantId}>
-              {i.name} · {i.label} · {i.sku} × {i.quantity} ·{' '}
+            <p key={`${i.variantId}:${i.optionLabel ?? 'none'}`}>
+              {i.name} · {i.label}{i.optionLabel ? ` · ${i.optionGroupLabel}: ${i.optionLabel}` : ''} · {i.sku} × {i.quantity} ·{' '}
               {formatVnd(i.priceVnd)}
             </p>
           ))}

@@ -5,20 +5,6 @@ import { ProductListPage } from '../features/catalog/ProductListPage'
 import { ProductPage } from '../features/catalog/ProductPage'
 import { AuthPage } from '../features/auth/AuthPage'
 import { VerifyEmailPage } from '../features/auth/VerifyEmailPage'
-import { AdminLayout } from '../features/admin/AdminLayout'
-import { ProductsPage } from '../features/admin/ProductsPage'
-import { ProductEditor } from '../features/admin/ProductEditor'
-import { CategoriesPage } from '../features/admin/CategoriesPage'
-import { InventoryPage } from '../features/admin/InventoryPage'
-import { DashboardPage } from '../features/admin/DashboardPage'
-import { OrdersPage as AdminOrdersPage } from '../features/admin/OrdersPage'
-import { OrderEditor } from '../features/admin/OrderEditor'
-import { CustomersPage } from '../features/admin/CustomersPage'
-import { CustomerDetailPage } from '../features/admin/CustomerDetailPage'
-import { SettingsPage } from '../features/admin/SettingsPage'
-import { ContentEditor } from '../features/admin/ContentEditor'
-import { AuditPage } from '../features/admin/AuditPage'
-import { EmailJobsPage } from '../features/admin/EmailJobsPage'
 import { CartPage } from '../features/cart/CartPage'
 import { CheckoutPage } from '../features/checkout/CheckoutPage'
 import { AccountPage } from '../features/account/AccountPage'
@@ -52,25 +38,6 @@ export const router = createBrowserRouter([
           { path: '/account/addresses', element: <AddressesPage /> },
           { path: '/account/orders', element: <OrdersPage /> },
           { path: '/account/orders/:id', element: <OrderDetailPage /> }
-        ]
-      },
-      {
-        path: '/admin',
-        element: <AdminLayout />,
-        children: [
-          { index: true, element: <DashboardPage /> },
-          { path: 'orders', element: <AdminOrdersPage /> },
-          { path: 'orders/:id', element: <OrderEditor /> },
-          { path: 'products', element: <ProductsPage /> },
-          { path: 'products/:id', element: <ProductEditor /> },
-          { path: 'categories', element: <CategoriesPage /> },
-          { path: 'inventory', element: <InventoryPage /> },
-          { path: 'customers', element: <CustomersPage /> },
-          { path: 'customers/:id', element: <CustomerDetailPage /> },
-          { path: 'settings', element: <SettingsPage /> },
-          { path: 'content', element: <ContentEditor /> },
-          { path: 'audit', element: <AuditPage /> },
-          { path: 'email-jobs', element: <EmailJobsPage /> }
         ]
       },
       { path: '*', element: <NotFoundPage /> }

@@ -17,7 +17,7 @@ test('preview listing has illustrative artwork and a useful product detail', asy
   await expect(page.getByRole('heading', { name: 'Mulberry jam' })).toBeVisible()
   await expect(page.locator('.detail-image img')).toHaveAttribute('src', '/images/jam.jpg')
   await expect(page.locator('.preview-notice')).toContainText('Preview listing')
-  await expect(page.getByRole('button', { name: /add jar to cart/i })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Add 1 to cart' })).toBeDisabled()
 })
 
 test('a confirmed former preview no longer claims ordering is unavailable', async ({ page }) => {
@@ -31,7 +31,7 @@ test('a confirmed former preview no longer claims ordering is unavailable', asyn
   await expect(page.locator('.product-card .product-badge')).toHaveText('Local demo · illustrative image')
   await page.getByRole('link', { name: 'Mulberry jam', exact: true }).click()
   await expect(page.locator('.preview-notice')).toHaveCount(0)
-  await expect(page.getByRole('button', { name: /add jar to cart/i })).toBeEnabled()
+  await expect(page.getByRole('button', { name: 'Add 1 to cart' })).toBeEnabled()
 })
 
 test('unpublished information pages explain their status and offer navigation', async ({ page }) => {

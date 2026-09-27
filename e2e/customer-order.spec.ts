@@ -174,7 +174,7 @@ test('real registration, SMTP verification, guest merge, two-tab cart, COD persi
     )
     await page.goto(`/products/${s.product.slug}`)
     await page
-      .getByRole('button', { name: 'Add Test 250 g pack to cart' })
+      .getByRole('button', { name: 'Add 1 to cart' })
       .click()
     await page.goto('/login?next=/cart')
     await page.getByLabel('Email').fill(email)
@@ -407,7 +407,7 @@ test('unverified checkout and sale-disabled product cannot submit (mocked)', asy
   ).toHaveCount(0)
   await page.goto('/products/test')
   await expect(
-    page.getByRole('button', { name: 'Add Pack to cart' })
+    page.getByRole('button', { name: 'Add 1 to cart' })
   ).toBeDisabled()
 })
 
