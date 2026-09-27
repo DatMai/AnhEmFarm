@@ -20,6 +20,7 @@ const calendarDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine(value => {
 }, 'Invalid calendar date');
 export const orderFiltersSchema = pagination.extend({
   status: statusSchema.optional(), collectionState: z.enum(['DUE', 'COLLECTED']).optional(),
+  attentionOnly: z.enum(['true', 'false']).optional().transform(value => value === 'true'),
   q: z.string().trim().min(1).max(120).optional(), from: calendarDate.optional(), to: calendarDate.optional(),
 }).superRefine((filters, context) => {
   if (filters.from && filters.to) {

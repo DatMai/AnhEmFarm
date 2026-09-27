@@ -2,6 +2,18 @@
 
 Updated: 2026-09-27.
 
+## Seller portal and product choices — 2026-09-27
+
+The owner approved implementing a seller action queue, moving all admin routes into a separate backend-owned MPA opened in a new tab, fixing checkout orders missing from seller views, and adding a simple customer product choice/quantity flow. Work is isolated on `feat/seller-admin-product-options` from `main` at `6fa3faf`; it has not been merged. The implementation is being prepared as one PR to `main` for the owner's review and merge.
+
+The portal uses active-admin session authorization, same-origin and CSRF checks, server-rendered HTML, and server-side form validation. Product/category/variant/choice forms parse the existing strict catalog schemas. One independent review initially caught a missing CSRF token on product creation and DTO validation bypasses; both were fixed, and regression tests now verify product creation and reject malformed/over-limit inputs. The portal shows accessible grouped navigation, order status counts and a pending-over-24-hour queue, paginated/searchable orders, categories, products, inventory, customers, reports, settings, content, audit, and email jobs. Orders made in checkout are searched in a real separate-tab browser journey. Product choices persist through cart/quote/COD order item snapshots; later seller edits do not rewrite existing orders. Quantities are 1–99.
+
+Fresh verification after the review fixes: `npm run verify` passed (client/SSR/API builds, 19 frontend tests, 166 server tests); `npm run test:e2e` passed 20/20; focused admin E2E passed 4/4; admin portal integration passed 2/2; root and server `npm audit --audit-level=high` each reported zero vulnerabilities; `git diff --check` passed before final doc updates. The test database was isolated as `anhemfarm_seller_admin_20260927_test`, derived from the configured `_dev` database URL and never reset. Browser E2E screenshots use synthetic test customers/orders only.
+
+The private ignored map at `.local-ui-map/` has been refreshed in the primary checkout with backend portal screenshots, customer product option/quantity/cart/quote/confirmation captures, updated route/control notes, and revised browser journeys. It remains local-only and is excluded by `.git/info/exclude`; none of the screenshots or map files are part of this PR. Screenshots show synthetic fixture data and are not a record of production orders.
+
+Remaining before handoff: finish independent review of fixes, create an English commit for the portal changes, push `feat/seller-admin-product-options`, open and attach one explicit PR to `main`, then record its URL here. Do not merge. Production catalog, stock, pricing, payment integrations, policies, external SMTP, real media storage and operational launch gates remain unverified.
+
 ## Current repository state — 2026-09-27
 
 [PR #4](https://github.com/DatMai/AnhEmFarm/pull/4) merged into `main` at `6d131ee`. Transactional customer order-status emails and admin order search/filtering are integrated alongside the earlier commerce and UI work. Commit `ba90f44` was the final PR head; its push and pull-request `verify` checks both passed. This repository state does not imply production SMTP delivery or live sales readiness.

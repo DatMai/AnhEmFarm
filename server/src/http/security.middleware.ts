@@ -23,7 +23,10 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
       }
       next(); return;
     }
-    if (request.header('origin') !== config.origin) {
+    const origin = request.header('origin');
+    // Native HTML form submissions may send the opaque "null" origin. They still need
+    // the session-bound CSRF token below; missing and other mismatched origins are rejected.
+    if (origin !== config.origin && origin !== 'null') {
       response.status(403).json({ code: 'ORIGIN_REJECTED' }); return;
     }
     if (resolveSessionCsrf) {

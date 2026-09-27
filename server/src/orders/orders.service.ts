@@ -24,7 +24,7 @@ function view(o: LoadedOrder): OrderView {
   return { id: o.id, status: o.status, collectionState: o.collectionState, version: o.version,
     recipient: o.recipientJson, subtotalVnd: safe(o.subtotalVnd), shippingVnd: safe(o.shippingVnd), totalVnd: safe(o.totalVnd),
     createdAt: o.createdAt.toISOString(), deliveredAt: o.deliveredAt?.toISOString() ?? null, collectedAt: o.collectedAt?.toISOString() ?? null,
-    tracking: o.tracking, attention: o.status === 'PENDING' && Date.now() - o.createdAt.getTime() > 24 * 3600000,
+    tracking: o.tracking, attention: o.status === 'PENDING' && o.createdAt.getTime() <= Date.now() - 24 * 3600000,
     items: o.items.map(i => ({ variantId: i.variantId, optionGroupLabel: i.optionGroupLabel, optionLabel: i.optionLabel, name: i.name, sku: i.sku, label: i.label, priceVnd: safe(i.priceVnd), quantity: i.quantity })),
     events: o.events.map(e => ({ id: e.id, fromStatus: e.fromStatus, toStatus: e.toStatus, reason: e.reason, createdAt: e.createdAt.toISOString() })) };
 }
@@ -60,6 +60,7 @@ export class OrdersService {
       const searchConditions: Prisma.Sql[] = [];
       if (role !== 'ADMIN') searchConditions.push(Prisma.sql`orders."userId" = ${actor.id}`);
       if (f.status) searchConditions.push(Prisma.sql`orders.status = ${f.status}`);
+      if (f.attentionOnly) searchConditions.push(Prisma.sql`orders.status = 'PENDING' AND orders."createdAt" <= ${new Date(Date.now() - 24 * 3600000)}`);
       if (f.collectionState) searchConditions.push(Prisma.sql`orders."collectionState" = ${f.collectionState}`);
       if (createdAt?.gte) searchConditions.push(Prisma.sql`orders."createdAt" >= ${createdAt.gte}`);
       if (createdAt?.lt) searchConditions.push(Prisma.sql`orders."createdAt" < ${createdAt.lt}`);
@@ -69,13 +70,13 @@ export class OrdersService {
             OR position(lower(${f.q}) in lower(users.email)) > 0
             OR position(lower(${f.q}) in lower(coalesce(orders.tracking, ''))) > 0
           )`);
-      const searchWhere = Prisma.join(searchConditions, ' AND ');
+      const searchWhere = f.q ? Prisma.join(searchConditions, ' AND ') : Prisma.empty;
       const matchingOrders = f.q ? await tx.$queryRaw<Array<{ id: string }>>`
         SELECT orders.id
         FROM orders
         JOIN users ON users.id = orders."userId"
         WHERE ${searchWhere}
-        ORDER BY orders."createdAt" DESC, orders.id DESC
+        ORDER BY orders."createdAt" ${f.attentionOnly ? Prisma.raw('ASC') : Prisma.raw('DESC')}, orders.id ${f.attentionOnly ? Prisma.raw('ASC') : Prisma.raw('DESC')}
         LIMIT ${f.pageSize} OFFSET ${(f.page - 1) * f.pageSize}
       ` : [];
       const searchTotal = f.q ? await tx.$queryRaw<Array<{ total: bigint }>>`
@@ -86,12 +87,13 @@ export class OrdersService {
       ` : null;
       const where: Prisma.OrderWhereInput = {
         ...(role === 'ADMIN' ? {} : { userId: actor.id }),
-        ...(f.status ? { status: f.status } : {}),
+        ...(f.attentionOnly ? { status: 'PENDING', createdAt: { lte: new Date(Date.now() - 24 * 3600000) } } : f.status ? { status: f.status } : {}),
         ...(f.collectionState ? { collectionState: f.collectionState } : {}),
         ...(createdAt ? { createdAt } : {}),
         ...(f.q ? { id: { in: matchingOrders.map(order => order.id) } } : {}),
       };
-      const items = await tx.order.findMany({ where, include: includes, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: f.q ? 0 : (f.page - 1) * f.pageSize, take: f.pageSize });
+      const direction = f.attentionOnly ? 'asc' : 'desc';
+      const items = await tx.order.findMany({ where, include: includes, orderBy: [{ createdAt: direction }, { id: direction }], skip: f.q ? 0 : (f.page - 1) * f.pageSize, take: f.pageSize });
       return { items: items.map(view), page: f.page, pageSize: f.pageSize, total: searchTotal ? Number(searchTotal[0].total) : await tx.order.count({ where }) };
     });
   }

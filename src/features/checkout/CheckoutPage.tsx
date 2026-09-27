@@ -228,8 +228,8 @@ export function CheckoutPage() {
                 {quote.address.recipient} · {quote.address.line1}
               </p>
               {quote.items.map((i) => (
-                <p key={i.variantId}>
-                  {i.productName} · {i.variantLabel} × {i.quantity}
+                <p key={`${i.variantId}:${i.optionId ?? 'none'}`}>
+                  {i.productName} · {i.variantLabel}{i.optionLabel ? ` · ${i.optionGroupLabel}: ${i.optionLabel}` : ''} × {i.quantity}
                 </p>
               ))}
               <Totals value={quote} />

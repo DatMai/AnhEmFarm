@@ -27,7 +27,7 @@ function GuestCart() {
       <h1>Cart</h1>
       {!items.length && <p>Your cart is empty.</p>}
       {items.map((item) => (
-        <p key={item.variantId}>
+        <p key={`${item.variantId}:${item.optionId ?? 'none'}`}>
           Selected variant{' '}
           <label>
             Quantity
@@ -41,7 +41,7 @@ function GuestCart() {
                 const n = Number(e.target.value)
                 if (Number.isInteger(n) && n >= 1 && n <= 99) {
                   const next = items.map((i) =>
-                    i.variantId === item.variantId ? { ...i, quantity: n } : i
+                    i.variantId === item.variantId && i.optionId === item.optionId ? { ...i, quantity: n } : i
                   )
                   saveGuestCart(next)
                   setItems(next)
@@ -51,7 +51,7 @@ function GuestCart() {
           </label>{' '}
           <button
             onClick={() => {
-              const next = items.filter((i) => i.variantId !== item.variantId)
+              const next = items.filter((i) => i.variantId !== item.variantId || i.optionId !== item.optionId)
               saveGuestCart(next)
               setItems(next)
             }}

@@ -14,27 +14,27 @@ export function ProductPage() {
   const client = useQueryClient()
   const { user } = useSession()
   const [busy, setBusy] = useState(false),
-    [message, setMessage] = useState('')
-  async function add(id: string) {
+    [message, setMessage] = useState(''),
+    [quantity, setQuantity] = useState(1),
+    [choiceId, setChoiceId] = useState<string | null>(null),
+    [variantId, setVariantId] = useState<string | null>(null)
+  async function add(id: string, optionId: string | null) {
     setBusy(true)
     setMessage('')
     try {
       if (user) {
         const cart = await getCart()
-        await setCartItem(
-          id,
-          (cart.items.find((i) => i.variantId === id)?.quantity ?? 0) + 1,
-          cart.version
-        )
+        const old = cart.items.find((item) => item.variantId === id && item.optionId === optionId)
+        await setCartItem(id, (old?.quantity ?? 0) + quantity, cart.version, optionId)
       } else {
         const items = loadGuestCart().items
-        const old = items.find((i) => i.variantId === id)
+        const old = items.find((item) => item.variantId === id && item.optionId === optionId)
         saveGuestCart(
           old
             ? items.map((i) =>
-                i.variantId === id ? { ...i, quantity: i.quantity + 1 } : i
+                i.variantId === id && i.optionId === optionId ? { ...i, quantity: Math.min(99, i.quantity + quantity) } : i
               )
-            : [...items, { variantId: id, quantity: 1 }]
+            : [...items, { variantId: id, optionId, quantity }]
         )
       }
       await client.invalidateQueries({ queryKey: ['private'] })
@@ -81,6 +81,10 @@ export function ProductPage() {
       </div>
     )
   const product = query.data
+  const selectedVariant = product.variants.find((variant) => variant.id === variantId) ?? product.variants[0]
+  const quantityValid = Number.isInteger(quantity) && quantity >= 1 && quantity <= 99
+  const choiceRequired = Boolean(product.choiceGroup)
+  const choiceValid = !choiceRequired || product.choiceGroup!.choices.some((choice) => choice.id === choiceId)
   const demoPhoto = previewImage(product.slug, product.confirmed)
   const image = imageUrl(product.images[0]) ?? demoPhoto
   const illustrative = Boolean(product.images[0]?.illustrative || (!product.images.length && demoPhoto))
@@ -125,15 +129,30 @@ export function ProductPage() {
               : 'Unavailable to order'}
           </strong>
           <p role="status">{message}</p>
+          {product.choiceGroup && (
+            <fieldset className="product-choice-group" aria-required="true">
+              <legend>{product.choiceGroup.label}</legend>
+              <p>Choose one option for this product.</p>
+              {product.choiceGroup.choices.map((choice) => (
+                <label key={choice.id}>
+                  <input type="radio" name="product-choice" value={choice.id} checked={choiceId === choice.id} onChange={() => setChoiceId(choice.id)} />
+                  {choice.label}
+                </label>
+              ))}
+            </fieldset>
+          )}
           <h2>Formats and availability</h2>
           {product.variants.length ? (
             <ul className="variant-list">
               {product.variants.map((variant) => (
                 <li key={variant.id}>
-                  <span>
+                  <label className="variant-select">
+                    <input type="radio" name="product-variant" value={variant.id} checked={(selectedVariant?.id ?? '') === variant.id} onChange={() => setVariantId(variant.id)} />
+                    <span>
                     {variant.label}
                     {variant.packDetails && ` · ${variant.packDetails}`}
-                  </span>
+                    </span>
+                  </label>
                   <span>
                     {!product.confirmed || variant.priceVnd === null
                       ? 'Price pending'
@@ -144,17 +163,27 @@ export function ProductPage() {
                       ? 'Available'
                       : 'Unavailable'}
                   </small>
-                  <button
-                    disabled={busy || !variantAvailable(product, variant)}
-                    onClick={() => void add(variant.id)}
-                  >
-                    Add {variant.label} to cart
-                  </button>
                 </li>
               ))}
             </ul>
           ) : (
             <p>Formats, sizes, and pricing will be added when confirmed.</p>
+          )}
+          {selectedVariant && (
+            <div className="detail-purchase">
+              <div className="quantity-control" aria-label="Quantity selector">
+                <button type="button" aria-label="Decrease quantity" disabled={quantity <= 1} onClick={() => setQuantity((current) => Math.max(1, current - 1))}>−</button>
+                <label>
+                  <span className="sr-only">Quantity</span>
+                  <input aria-label="Quantity" type="number" min="1" max="99" value={quantity} onChange={(event) => setQuantity(Number(event.target.value))} />
+                </label>
+                <button type="button" aria-label="Increase quantity" disabled={quantity >= 99} onClick={() => setQuantity((current) => Math.min(99, current + 1))}>+</button>
+              </div>
+              <button className="button button-primary detail-add-button" disabled={busy || !quantityValid || !choiceValid || !variantAvailable(product, selectedVariant)} onClick={() => void add(selectedVariant.id, choiceId)}>
+                {busy ? 'Adding…' : `Add ${quantity} to cart`}
+              </button>
+              {choiceRequired && !choiceValid && <small>Select an option before adding this product.</small>}
+            </div>
           )}
           {!product.purchasable && <Link className="detail-secondary-link" to="/products">Explore other products</Link>}
         </div>

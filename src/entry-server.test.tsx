@@ -4,7 +4,7 @@ import { renderPublicPage } from './entry-server'
 describe('public server rendering', () => {
   it('renders the real product name and canonical without private data', async () => {
     const page = await renderPublicPage('/products/test-coffee', {
-      product: { id: 'p1', slug: 'test-coffee', name: 'Test coffee', description: 'Fresh coffee', category: { id: 'c1', slug: 'coffee', name: 'Coffee' }, images: [], startingPriceVnd: null, purchasable: false, confirmed: false, restricted18: false, variants: [] }
+      product: { id: 'p1', slug: 'test-coffee', name: 'Test coffee', description: 'Fresh coffee', category: { id: 'c1', slug: 'coffee', name: 'Coffee' }, images: [], startingPriceVnd: null, purchasable: false, confirmed: false, restricted18: false, choiceGroup: null, variants: [] }
     })
     expect(page.status).toBe(200)
     expect(page.html).toContain('Test coffee')

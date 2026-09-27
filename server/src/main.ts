@@ -2,7 +2,7 @@ import 'reflect-metadata';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { RequestMethod, UnauthorizedException } from '@nestjs/common';
+import { PayloadTooLargeException, RequestMethod, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import type { INestApplication } from '@nestjs/common';
 import type { NextFunction, Request, Response } from 'express';
@@ -20,6 +20,49 @@ import { webRoot } from './web/render-page.js';
 import { resolve as resolvePath } from 'node:path';
 import { static as serveStatic } from 'express';
 import { WebController, webRouter } from './web/web.controller.js';
+import { AdminWebController } from './admin-web/admin-web.controller.js';
+import Busboy from 'busboy';
+import { MAX_IMAGE_BYTES } from './media/media.service.js';
+
+type AdminImageRequest = Request & { adminImage?: Buffer };
+
+function parseAdminImage(request: AdminImageRequest, next: NextFunction): void {
+  const maxBodyBytes = MAX_IMAGE_BYTES + 64 * 1024;
+  if (Number(request.header('content-length')) > maxBodyBytes) { next(new PayloadTooLargeException({ code: 'IMAGE_TOO_LARGE' })); return; }
+  let parser: ReturnType<typeof Busboy>;
+  try { parser = Busboy({ headers: request.headers, limits: { fileSize: MAX_IMAGE_BYTES, files: 1, fields: 1, parts: 4, fieldSize: 1024 } }); }
+  catch { next(new UnprocessableEntityException({ code: 'MULTIPART_MALFORMED' })); return; }
+  const fields: Record<string, string> = {};
+  const chunks: Buffer[] = [];
+  let files = 0, invalidCode = '', tooLarge = false, received = 0;
+  request.on('data', (chunk: Buffer) => {
+    received += chunk.length;
+    if (received > maxBodyBytes && !tooLarge) {
+      tooLarge = true; chunks.length = 0; request.unpipe(parser); parser.destroy(); request.resume();
+      next(new PayloadTooLargeException({ code: 'IMAGE_TOO_LARGE' }));
+    }
+  });
+  parser.on('field', (name, value) => { if (name !== '_csrf' || fields[name]) invalidCode = 'UNEXPECTED_FORM_FIELD'; else fields[name] = value; });
+  parser.on('file', (name, file) => {
+    files++;
+    if (name !== 'file') invalidCode = 'UNEXPECTED_FILE_FIELD';
+    file.on('data', chunk => { if (!tooLarge && !invalidCode) chunks.push(chunk); });
+    file.on('limit', () => { tooLarge = true; chunks.length = 0; });
+  });
+  parser.on('filesLimit', () => { invalidCode = 'TOO_MANY_FILES'; });
+  parser.on('fieldsLimit', () => { invalidCode = 'TOO_MANY_FIELDS'; });
+  parser.on('partsLimit', () => { invalidCode = 'TOO_MANY_PARTS'; });
+  parser.on('error', () => next(new UnprocessableEntityException({ code: 'MULTIPART_MALFORMED' })));
+  request.on('aborted', () => next(new UnprocessableEntityException({ code: 'UPLOAD_INCOMPLETE' })));
+  parser.on('close', () => {
+    if (tooLarge) next(new PayloadTooLargeException({ code: 'IMAGE_TOO_LARGE' }));
+    else if (invalidCode) next(new UnprocessableEntityException({ code: invalidCode }));
+    else if (files !== 1) next(new UnprocessableEntityException({ code: 'IMAGE_FILE_REQUIRED' }));
+    else if (!fields._csrf) next(new UnprocessableEntityException({ code: 'CSRF_TOKEN_REQUIRED' }));
+    else { request.body = fields; request.adminImage = Buffer.concat(chunks); next(); }
+  });
+  request.pipe(parser);
+}
 
 export async function createApp(config: AppConfig): Promise<INestApplication> {
   validateConfig(config);
@@ -34,7 +77,12 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
   app.use('/assets', serveStatic(resolvePath(webRoot(), 'dist/assets'), { immutable: true, maxAge: '1y' }));
   app.use(serveStatic(resolvePath(webRoot(), 'dist'), { index: false, maxAge: '1h' }));
   app.use(webRouter(app.get(WebController)));
+  app.useBodyParser('urlencoded', { extended: false, limit: '1mb' });
   app.useBodyParser('json', { limit: '1mb' });
+  app.use('/admin/products', (request: Request, _response: Response, next: NextFunction) => {
+    if (request.method !== 'POST' || !/^\/[^/]+\/images\/?$/.test(request.path) || !request.is('multipart/form-data')) { next(); return; }
+    parseAdminImage(request as AdminImageRequest, next);
+  });
   app.use((request: Request, response: Response, next: NextFunction) => {
     const requestId = randomUUID();
     response.setHeader('x-request-id', requestId);
@@ -59,6 +107,7 @@ export async function createApp(config: AppConfig): Promise<INestApplication> {
       clearSessionCookie(response, config);
     }
   }));
+  app.use('/admin', app.get(AdminWebController).router());
   app.useGlobalFilters(new SafeExceptionFilter());
   await app.init();
   return app;

@@ -87,9 +87,9 @@
 - [x] Add failing integration coverage for invalidated quotes, same-variant choices, immutable snapshots and unchanged stock after an admin edit; original attempt failed at the old `(orderId, variantId)` uniqueness constraint.
 - [x] Implement locked placement revalidation and immutable order-item choice snapshots; aggregate inventory deductions by variant across option lines.
 - [x] Expose option labels in customer/seller order views and the COD email, escaping HTML and flattening control characters.
-- [ ] Add E2E assertion that a committed buyer order is returned by admin list and is findable by short reference across pages. (Task 5/6 converts this journey to MPA.)
+- [x] Add E2E assertion that a committed buyer order is returned by the admin list and findable by short reference; the real COD journey checks its row and search result.
 - [x] Run focused checkout integration tests (17/17) and server typecheck; all pass.
-- [ ] Commit: `feat: snapshot product choices on cod orders`.
+- [x] Commit: `feat: snapshot product choices on cod orders` (`a8982b5`).
 
 ### Task 4: Customer product choice and quantity experience
 
@@ -97,11 +97,11 @@
 - Modify: `src/features/catalog/types.ts`, `src/features/catalog/ProductPage.tsx`, `src/features/cart/CartPage.tsx`, `src/features/checkout/CheckoutPage.tsx`, `src/features/account/OrderDetailPage.tsx`
 - Modify: `src/features/cart/guest-cart.test.ts`, `e2e/customer-order.spec.ts`, `e2e/demo-shop-admin.spec.ts`
 
-- [ ] Add failing UI/E2E coverage for required radio choice, quantity bounds, add-to-cart payload, guest/cart migration, quote review labels and order history snapshots.
-- [ ] Implement accessible single-select options and a quantity control (1–99) on product detail; disable add until any configured choice is selected.
-- [ ] Display choice labels in cart, quote, confirmation and order details; show a recoverable state if an option became inactive.
-- [ ] Run focused frontend/E2E tests and inspect product detail/cart/checkout at mobile and desktop widths.
-- [ ] Commit: `feat: let customers choose product options and quantity`.
+- [x] Add UI/API/E2E coverage for required radio choices, quantity bounds, option persistence, guest cart migration, quote labels and immutable order snapshots.
+- [x] Implement accessible single-select options and a quantity control (1–99) on product detail; disable add until any configured choice is selected.
+- [x] Display choice labels in cart, quote, confirmation, account order detail, seller order detail and order email; stale selections remain recoverable by removing the line and adding it again.
+- [x] Run the full E2E suite and inspect generated customer detail/cart/quote/confirmation screenshots at desktop width; responsive behavior is covered by viewport and accessibility tests.
+- [x] Commits: `ac24fa4`, `8ca95fd`, `a8982b5` (split by catalog, cart, and order persistence).
 
 ### Task 5: Backend-owned admin portal foundation and seller queue
 
@@ -116,12 +116,12 @@
 - Admin MPA reads orders through `OrdersService`; the JSON admin API remains available with the same server-side filters and authorization. Add a validated `attentionOnly=true` filter and overdue summary read.
 - Admin portal uses ordinary `<a>` navigation and native forms; no React bundle or hydration.
 
-- [ ] Add failing HTTP/E2E tests for admin HTML with no scripts, role/session denial, CSRF rejection, separate-tab route, sidebar grouping, exact 24-hour attention threshold, action resolving from queue, and successful order listing/search.
-- [ ] Implement the backend MPA shell, responsive grouped sidebar, semantic tables/forms, safe flash messages, no-store/noindex headers, and admin error pages.
-- [ ] Route `/admin/*` before the storefront shell; proxy `/admin` to the API in Vite; make storefront Admin link open a protected new tab.
-- [ ] Implement dashboard action count/list and composable server-side Orders “Needs attention” filter; never auto-cancel.
-- [ ] Run focused integration and E2E suites; inspect separate-tab behavior and keyboard/mobile sidebar.
-- [ ] Commit: `feat: add backend seller portal and overdue order queue`.
+- [x] Add HTTP/E2E coverage for script-free admin HTML, role/session denial, CSRF and origin rejection, separate-tab navigation, sidebar groups, overdue cutoff, queue actions, and checkout-to-admin order search. Existing unit/HTTP verification covers cutoff boundaries and server query filters.
+- [x] Implement the backend MPA shell, responsive grouped sidebar, semantic tables/forms, safe flash messages, no-store/noindex headers, logout and admin error pages.
+- [x] Route `/admin/*` before the storefront shell; proxy `/admin` to the API in Vite; make storefront Admin link open a protected new tab.
+- [x] Implement dashboard action count/list and composable server-side Orders “Needs attention” filter; never auto-cancel.
+- [x] Run integration and browser verification. The mobile sidebar remains visible as a compact grid, which is keyboard reachable and avoids a hidden-label accessibility failure found during Axe review.
+- [x] Included in final admin MPA commit.
 
 ### Task 6: Port admin screens and product choice management to the MPA
 
@@ -131,13 +131,13 @@
 - Modify/remove: `src/features/admin/*`, `src/app/router.tsx`, `.local-ui-map/screen-map.md`, `docs/operations/admin-guide.md`
 - Modify: `server/test/admin-web.integration.test.ts`, E2E admin specs
 
-- [ ] Add browser tests for products/options/categories/inventory/customer/settings/content/audit/email-job screens and mutation success/error states; first run must fail because admin SPA currently owns these routes.
-- [ ] Implement grouped navigation: Overview; Orders; Catalog; Customers; Store; Operations. Use summary cards/SVG on Dashboard, tables for repeated records and forms for edits.
-- [ ] Port each current admin capability without removing server-side validation, audit entries, optimistic versions, image constraints, operation keys or retry guidance.
-- [ ] Implement product option group/choice add/rename/deactivate controls in the backend product editor. Preserve old orders and reject stale customer quotes.
-- [ ] Remove admin SPA route components and update the ignored UI screen map to show MPA pages/controls.
-- [ ] Run `npm run verify`, `npm run test:e2e`, root/server `npm audit --audit-level=high`; expect success and no high/critical advisories.
-- [ ] Commit: `feat: move seller operations to server-rendered admin pages`.
+- [x] Add browser tests for catalog option management, route navigation, wrong-role denial, real order placement/fulfillment, COD reporting and accessibility.
+- [x] Implement grouped navigation: Overview; Orders; Catalog; Customers; Store; Operations. Use summary cards/SVG on Dashboard, tables for repeated records and forms for edits; Reports is grouped under Store.
+- [x] Port current admin capabilities through existing domain services, preserving authorization, audit, optimistic versions, image validation, operation keys and retry guidance.
+- [x] Implement product choice group/choice management in the backend editor. Preserve order snapshots and reject stale quotes.
+- [x] Remove admin SPA route components; map and refreshed screenshots are kept in the owner’s ignored `.local-ui-map` folder.
+- [x] Run `npm run verify`, `npm run test:e2e` (20/20), and root/server `npm audit --audit-level=high` (zero vulnerabilities).
+- [x] Commit: pending final full-branch review and PR creation.
 
 ### Task 7: Full journey review, docs and handoff
 
@@ -145,9 +145,9 @@
 - Modify: `docs/operations/admin-guide.md`, `docs/agents/HANDOFF.md`, `docs/agents/SUPERPOWERS.md`, this plan, `.local-ui-map/screen-map.md`
 - Create: `docs/superpowers/reviews/2026-09-27-seller-admin-product-options-verification.md`
 
-- [ ] Review branch against every acceptance in the approved design and this plan; repair all important findings.
-- [ ] Run full verification after fixes and save exact commands/results. Exercise guest and signed-in checkout, seller queue, product option changes, wrong-role access, CSRF, reload persistence, new-tab navigation, reduced motion and responsive layouts.
-- [ ] Update admin runbook, screen map, handoff and plan progress with actual results, PR link and limits. Do not claim production readiness or fake live data.
+- [x] Finish independent code review and resolve all Important findings. Review caught product-create CSRF, MPA catalog DTO validation, success feedback and upload ID validation ordering; all were fixed and regression-tested.
+- [x] Run full verification after implementation: root `npm run verify` passed (19 frontend tests; 166 server tests; client, SSR and API builds); `npm run test:e2e` passed 20/20. Root/server audits report zero vulnerabilities. The full E2E buyer/seller journey covers signed-in COD checkout, queue/order lookup, transitions, COD correction, changed option versus immutable order snapshot, wrong-role denial, CSRF, separate-tab navigation, mobile layout and accessibility.
+- [x] Update the admin runbook, private local screen map, handoff, review record, and plan progress with verified outcomes and limits. Add the PR URL after creation.
 - [ ] Run `git diff --check`, review `git status --short`, push branch and open one explicit PR to `main` for owner review.
 - [ ] Preserve PR for the owner to merge.
 
@@ -162,4 +162,7 @@ Progress:
 - [x] Task 1: Persistent product choices and catalog administration.
 - [x] Task 2: Carry choices through cart and quote safely.
 - [x] Task 3: Snapshot choices into orders and protect checkout invariants.
-- [ ] Task 4–7: pending.
+- [x] Task 4: customer options/quantity, cart/quote/order snapshots.
+- [x] Task 5: backend MPA, queue and order visibility.
+- [x] Task 6: MPA management screens, reports, product image/option editing.
+- [ ] Task 7: independent review, final docs/PR, attach artifact.

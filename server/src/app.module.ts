@@ -26,6 +26,7 @@ import { CartService } from './cart/cart.service.js';
 import { CheckoutController, OrderPlacementController } from './checkout/checkout.controller.js';
 import { CheckoutService } from './checkout/checkout.service.js';
 import { QuoteService } from './checkout/quote.service.js';
+import { AdminWebController } from './admin-web/admin-web.controller.js';
 
 @Global()
 @Module({})
@@ -35,7 +36,7 @@ export class AppModule {
       module: AppModule,
       imports: [IdentityModule, CatalogModule, MediaModule],
       controllers: [AccountController, CustomersController, ReportsController, SettingsController, StoreController, AdminContentController, PublicContentController, HealthController, CsrfController, CartController, CheckoutController, OrderPlacementController, OrdersController, AdminOrdersController],
-      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, WebController, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
+      providers: [AccountService, CustomersService, ReportsService, SettingsService, ContentService, WebController, AdminWebController, { provide: APP_CONFIG, useValue: config }, PrismaService, CsrfGuard, RateLimitService, CartService, QuoteService, CheckoutService, OrdersService],
       exports: [APP_CONFIG, PrismaService, CsrfGuard],
     };
   }

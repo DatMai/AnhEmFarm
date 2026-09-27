@@ -20,12 +20,20 @@ const config = {
   databaseUrl,
   smtp: { host: '127.0.0.1', port: 1025, from: 'test@example.test' }
 }
+const port = Number(process.env.TEST_API_PORT ?? 4279)
 let app = await createApp(config)
 const fixture = await seedScenario(app.get(PrismaService))
-await app.listen(3000, '127.0.0.1')
+await app.listen(port, '127.0.0.1')
 process.send?.({ ready: true, fixture })
 process.on('message', async (message: { action: string; email?: string }) => {
   try {
+    if (message.action === 'options') {
+      const group = await app.get(PrismaService).productChoiceGroup.create({ data: { productId: fixture.product.id, label: 'Sweetness', choices: { create: [
+        { label: 'Original', sortPosition: 0 }, { label: 'Less sweet', sortPosition: 1 },
+      ] } } });
+      process.send?.({ done: message.action, groupId: group.id });
+      return;
+    }
     if (message.action === 'order') {
       const actor = { id: fixture.customer.id, role: 'CUSTOMER' as const, authVersion: 1 }
       const cart = app.get(CartService), current = await cart.get(actor)
@@ -39,7 +47,7 @@ process.on('message', async (message: { action: string; email?: string }) => {
     if (message.action === 'restart') {
       await app.close()
       app = await createApp(config)
-      await app.listen(3000, '127.0.0.1')
+      await app.listen(port, '127.0.0.1')
     }
     if (message.action === 'email') {
       await app

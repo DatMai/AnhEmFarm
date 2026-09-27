@@ -20,6 +20,8 @@ export type Order = {
   tracking?: string
   items: {
     variantId: string
+    optionGroupLabel: string | null
+    optionLabel: string | null
     name: string
     label: string
     sku: string

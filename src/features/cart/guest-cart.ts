@@ -13,7 +13,7 @@ const validLines = (value: unknown, legacy = false): value is Array<Omit<GuestLi
     (legacy || line.optionId === null || typeof line.optionId === 'string' && uuid.test(line.optionId))) &&
   new Set(value.map(line => `${line.variantId}:${line.optionId ?? 'none'}`)).size === value.length
 const canonical = (items: GuestLine[]) => [...items].sort((a, b) => `${a.variantId}:${a.optionId ?? 'none'}`.localeCompare(`${b.variantId}:${b.optionId ?? 'none'}`))
-const normalize = (items: Array<{ variantId: string; quantity: number; optionId?: string | null }>): GuestLine[] => canonical(items.map(line => ({ ...line, optionId: line.optionId ?? null })))
+const normalize = (items: Array<{ variantId: string; quantity: number; optionId?: string | null }>): GuestLine[] => canonical(items.map(line => ({ variantId: line.variantId, quantity: line.quantity, optionId: line.optionId ?? null })))
 export function loadGuestCart(): Stored {
   try {
     const raw = localStorage.getItem(storageKey)
@@ -39,7 +39,7 @@ export function loadGuestCart(): Stored {
     if (record.pendingMerge !== undefined) {
       const pending = record.pendingMerge as GuestMerge
       if (!pending || typeof pending.key !== 'string' || !uuid.test(pending.key) || !validLines(pending.items) ||
-        JSON.stringify(canonical(pending.items)) !== JSON.stringify(canonical(record.items)) || Object.keys(pending).sort().join(',') !== 'items,key') return empty()
+        JSON.stringify(canonical(pending.items as GuestLine[])) !== JSON.stringify(canonical(record.items as GuestLine[])) || Object.keys(pending).sort().join(',') !== 'items,key') return empty()
     }
     return { version: 2, items: canonical(record.items as GuestLine[]), ...(record.pendingMerge ? { pendingMerge: record.pendingMerge as GuestMerge } : {}) }
   } catch { return empty() }

@@ -15,8 +15,8 @@ The admin page layer calls existing domain services for writes, plus narrowly sc
 ## Admin workspace and presentation
 
 - The storefront's Admin action opens `/admin` with `target="_blank"` and `rel="noopener"`; the backend portal is the only admin route. Direct customer/admin navigation stays protected by the same server guard.
-- A fixed, responsive left sidebar groups: **Overview** (Dashboard); **Orders** (All orders, Needs attention); **Catalog** (Products, Categories, Inventory); **Customers**; **Store** (Settings, Content); **Operations** (Audit, Email jobs). Narrow screens use a labelled collapsible sidebar without requiring JavaScript; its links remain ordinary anchors.
-- Dashboard uses summary cards and one accessible inline SVG chart of orders by status, plus an overdue-order count and the oldest pending orders. It does not label revenue as profit.
+- A fixed, responsive left sidebar groups: **Overview** (Dashboard); **Orders** (All orders, Needs attention); **Catalog** (Products, Categories, Inventory); **Customers**; **Store** (Settings, Reports, Content); **Operations** (Audit, Email jobs). Narrow screens keep the grouped links visible in a compact grid so every destination is immediately discoverable and keyboard reachable without JavaScript.
+- Dashboard uses order summary cards and one accessible inline SVG chart of orders by status, plus an overdue-order count and the oldest pending orders. Reports separately shows delivered order value and COD collection/due totals by Vietnam date range; neither page labels revenue as profit.
 - Orders and customers use semantic tables with search/status/date filters, stable server pagination and detail links. Products, categories, inventory and audit use tables where records repeat and focused forms for create/update operations. Settings and content use labelled forms. Email jobs use a status summary and failure table.
 - Every page includes useful empty, invalid-input, unauthorized and success/error states. Mutations redirect to a stable GET view with a short English status message. Preserve operation keys when the result could be uncertain.
 
