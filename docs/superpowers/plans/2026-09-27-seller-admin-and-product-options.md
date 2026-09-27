@@ -34,7 +34,7 @@
 
 **Files:**
 - Modify: `server/prisma/schema.prisma`
-- Create: `server/prisma/migrations/<timestamp>_product_choices/migration.sql`
+- Create: `server/prisma/migrations/20260927090000_product_choice_catalog/migration.sql`
 - Modify: `server/src/catalog/catalog.schemas.ts`, `server/src/catalog/catalog.service.ts`, `server/src/catalog/admin-catalog.controller.ts`
 - Modify: `server/test/catalog.integration.test.ts`
 
@@ -52,7 +52,8 @@
 ### Task 2: Carry choices through cart and quote safely
 
 **Files:**
-- Modify: `server/prisma/schema.prisma`, `server/prisma/migrations/<timestamp>_product_choices/migration.sql`
+- Modify: `server/prisma/schema.prisma`
+- Create: `server/prisma/migrations/20260927093000_product_choice_cart/migration.sql`
 - Modify: `server/src/cart/cart.controller.ts`, `server/src/cart/cart.service.ts`, `server/src/checkout/checkout.schemas.ts`, `server/src/checkout/quote.service.ts`
 - Modify: `src/features/cart/cart-api.ts`, `src/features/cart/guest-cart.ts`, `src/features/cart/guest-cart.test.ts`
 - Modify: `server/test/cart-quote.integration.test.ts`
@@ -72,7 +73,8 @@
 ### Task 3: Snapshot choices into orders and protect checkout invariants
 
 **Files:**
-- Modify: `server/prisma/schema.prisma`, `server/prisma/migrations/<timestamp>_product_choices/migration.sql`
+- Modify: `server/prisma/schema.prisma`
+- Create: `server/prisma/migrations/20260927094500_product_choice_order_snapshots/migration.sql`
 - Modify: `server/src/checkout/checkout.service.ts`, `server/src/orders/orders.service.ts`, `server/src/email/email.templates.ts`
 - Modify: `server/test/checkout.integration.test.ts`, `server/test/orders.integration.test.ts`, `e2e/demo-shop-admin.spec.ts`
 
