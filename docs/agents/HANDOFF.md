@@ -6,9 +6,11 @@ Updated: 2026-09-27.
 
 The owner merged [PR #10](https://github.com/DatMai/AnhEmFarm/pull/10) into `main` at `6a80875` and requested a code, browser, E2E, documentation, process, and private UI-map check before the next feature. This pass is isolated on `feat/post-merge-quality-sync` from that merge. No next feature has been selected; wait for the owner's request after this branch merges.
 
-The merged baseline passed `npm run verify` (client/SSR/API builds, 20 frontend tests, 172 backend tests) and `npm run test:e2e` (21/21 Chromium cases). The local API, worker, Mailpit and Vite preview were running; `/health/ready` returned `ok`. Browser inspection covered product quantity and cart removal, the separate-tab admin portal, and its Orders table. A small sidebar Log out style defect was found and corrected on this branch. The ignored `.local-ui-map/` in the primary checkout was refreshed with current public, mobile, account, seller and guest checkout fixture screenshots. Final verification is recorded in `docs/superpowers/reviews/2026-09-27-post-merge-quality-verification.md`; this handoff records the PR after creation.
+The merged baseline passed `npm run verify` (client/SSR/API builds, 20 frontend tests, 172 backend tests) and `npm run test:e2e` (21/21 Chromium cases). The local API, worker, Mailpit and Vite preview were running; `/health/ready` returned `ok`. Browser inspection covered product quantity and cart removal, the separate-tab admin portal, and its Orders table. A small sidebar Log out style defect was found and corrected on this branch. The ignored `.local-ui-map/` in the primary checkout was refreshed with current public, mobile, account, seller and guest checkout fixture screenshots. Final verification is recorded in `docs/superpowers/reviews/2026-09-27-post-merge-quality-verification.md`.
 
 The previously supplied local QA login is an **admin** account in the development database, despite being described as a customer. Do not use it as evidence for customer-only behavior; the E2E suite uses separate synthetic customer and seller accounts. No credentials are recorded here.
+
+The quality pass is proposed in [PR #11](https://github.com/DatMai/AnhEmFarm/pull/11) on `feat/post-merge-quality-sync`, targeting `main` for the owner's review and merge. The next feature remains unspecified until the owner requests it.
 
 ## Registration host origin — 2026-09-27
 

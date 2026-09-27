@@ -21,7 +21,7 @@ The owner merged PR #10 at `6a80875` and requested a full check before naming th
 - The local API readiness endpoint returned `ok`; Vite served the storefront; Mailpit and the outbox worker were running.
 - The ignored local UI map was refreshed with 23 public/mobile screenshots and 25 synthetic fixture screenshots, including six guest-checkout stages. Its route/control descriptions and capture provenance were updated.
 
-The local map was refreshed once more after the final browser rerun. Its admin Orders screenshot now shows the styled Log out control and the “Attention” column heading. `git diff --check` and the final Git review are required before push; the PR link will be added in the handoff after creation.
+The local map was refreshed once more after the final browser rerun. Its admin Orders screenshot now shows the styled Log out control and the “Attention” column heading. `git diff --check` passed, and the Git review confirmed that screenshots, local ledgers, credentials and private records were not staged. The change is proposed in [PR #11](https://github.com/DatMai/AnhEmFarm/pull/11) for the owner's merge.
 
 ## Limits
 
