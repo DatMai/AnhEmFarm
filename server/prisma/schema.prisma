@@ -312,10 +312,13 @@ model OrderItem {
  name String
  sku String
  label String
+ optionGroupLabel String?
+ optionLabel String?
+ selectionKey String @default("none")
  priceVnd BigInt
  quantity Int
  createdAt DateTime @default(now())
- @@unique([orderId,variantId])
+ @@unique([orderId,variantId,selectionKey])
  @@map("order_items")
 }
 model OrderEvent {

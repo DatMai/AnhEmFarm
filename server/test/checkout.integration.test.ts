@@ -6,6 +6,8 @@ import { CartService } from '../src/cart/cart.service.js';
 import { QuoteService } from '../src/checkout/quote.service.js';
 import { EmailWorker, RecordingEmailTransport } from '../src/email/email.worker.js';
 import { CheckoutService } from '../src/checkout/checkout.service.js';
+import { OrdersService } from '../src/orders/orders.service.js';
+import { CatalogService } from '../src/catalog/catalog.service.js';
 
 const actor = (id: string) => ({ id, role: 'CUSTOMER' as const, authVersion: 1 });
 describe('atomic COD placement', () => {
@@ -31,6 +33,48 @@ describe('atomic COD placement', () => {
       const order = await h.db.order.findFirstOrThrow({ where: { quoteId: { in: [qa.id, qb.id] } } });
       expect(await h.db.emailOutbox.count({ where: { dedupeKey: `order-created:${order.id}` } })).toBe(1);
     }
+  });
+  it('snapshots two choices of one variant into immutable COD order lines and its receipt', async () => {
+    const s = await seedScenario(h.db);
+    const group = await h.db.productChoiceGroup.create({ data: { productId: s.product.id, label: 'Sweetness', choices: { create: [
+      { label: 'Original & <classic>', sortPosition: 0 }, { label: 'Less sweet', sortPosition: 1 },
+    ] } } });
+    const choices = await h.db.productChoice.findMany({ where: { groupId: group.id }, orderBy: { sortPosition: 'asc' } });
+    const a = actor(s.customer.id); const cart = h.resolve(CartService);
+    const empty = await cart.get(a);
+    await cart.set(a, s.variant.id, 1, empty.version, choices[0].id);
+    await cart.set(a, s.variant.id, 2, (await cart.get(a)).version, choices[1].id);
+    const q = await h.resolve(QuoteService).create(a, { address: { recipient: s.address.recipient, phone: s.address.phone, zoneId: s.zone.id, line1: s.address.line1 }, ageConfirmed: false });
+    const placed = await h.resolve(CheckoutService).place(a, q.id, randomUUID());
+    expect(placed.order.items.map(item => [item.optionGroupLabel, item.optionLabel]).sort()).toEqual([
+      ['Sweetness', 'Less sweet'], ['Sweetness', 'Original & <classic>'],
+    ]);
+    expect(placed.order.items).toHaveLength(2);
+    expect((await h.db.variant.findUniqueOrThrow({ where: { id: s.variant.id } })).stock).toBe(2);
+    const updated = await h.resolve(CatalogService).updateChoiceGroup({ id: s.admin.id, role: 'ADMIN', authVersion: 1 }, s.product.id, {
+      expectedVersion: 1, label: 'Flavor', choices: [{ id: choices[0].id, label: 'New label', active: true }, { id: choices[1].id, label: 'Less sweet', active: false }],
+    });
+    expect(updated.version).toBe(2);
+    expect((await h.resolve(OrdersService).get(a, placed.order.id)).items.map(item => item.optionLabel).sort()).toEqual(['Less sweet', 'Original & <classic>']);
+    await h.db.emailOutbox.update({ where: { dedupeKey: `order-created:${placed.order.id}` }, data: { availableAt: new Date(0) } });
+    await h.resolve(EmailWorker).tick();
+    const sent = h.resolve(RecordingEmailTransport).messages.find(message => message.to === s.customer.email && message.text.includes(placed.order.id));
+    expect(sent?.text).toContain('Original & <classic>');
+    expect(sent?.html).toContain('Original &amp; &lt;classic&gt;');
+  });
+  it('rejects a quote after an admin changes its selected choice without consuming stock', async () => {
+    const s = await seedScenario(h.db);
+    const group = await h.db.productChoiceGroup.create({ data: { productId: s.product.id, label: 'Sweetness', choices: { create: [{ label: 'Original', sortPosition: 0 }] } } });
+    const [choice] = await h.db.productChoice.findMany({ where: { groupId: group.id } });
+    const a = actor(s.customer.id); const cart = h.resolve(CartService);
+    await cart.set(a, s.variant.id, 2, (await cart.get(a)).version, choice.id);
+    const q = await h.resolve(QuoteService).create(a, { address: { recipient: s.address.recipient, phone: s.address.phone, zoneId: s.zone.id, line1: s.address.line1 }, ageConfirmed: false });
+    await h.resolve(CatalogService).updateChoiceGroup({ id: s.admin.id, role: 'ADMIN', authVersion: 1 }, s.product.id, {
+      expectedVersion: 1, label: 'Sweetness level', choices: [{ id: choice.id, label: 'Less sweet', active: true }],
+    });
+    await expect(h.resolve(CheckoutService).place(a, q.id, randomUUID())).rejects.toMatchObject({ status: 409, response: { code: 'QUOTE_CHANGED' } });
+    expect((await h.db.variant.findUniqueOrThrow({ where: { id: s.variant.id } })).stock).toBe(5);
+    expect(await h.db.order.count({ where: { quoteId: q.id } })).toBe(0);
   });
   it('replays same quote with different keys, rejects key reuse, and survives restart', async () => {
     const s = await seedScenario(h.db); const q = await quote(s); const q2 = await h.resolve(QuoteService).create(actor(s.customer.id), { address: q.address, ageConfirmed: false }); const key = randomUUID(); const alias = randomUUID();

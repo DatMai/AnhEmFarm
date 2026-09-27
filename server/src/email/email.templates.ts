@@ -3,7 +3,8 @@ import type { AppConfig } from '../config.js';
 export type OrderStatusEmailStatus = 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
 export type OrderStatusEmailPayload = { orderId: string; eventId: string; status: OrderStatusEmailStatus; tracking: string | null };
 export type EmailTemplate = 'VERIFY' | 'RESET' | 'ORDER_CREATED' | 'ORDER_STATUS_CHANGED';
-export type EmailPayload = { token: string } | { orderId: string; totalVnd: number } | OrderStatusEmailPayload;
+export type OrderEmailItem = { name: string; label: string; optionGroupLabel: string | null; optionLabel: string | null; quantity: number };
+export type EmailPayload = { token: string } | { orderId: string; totalVnd: number; items?: OrderEmailItem[] } | OrderStatusEmailPayload;
 export interface EmailMessage { to: string; subject: string; text: string; html: string }
 
 const statusLabels: Record<OrderStatusEmailStatus, string> = {
@@ -20,12 +21,19 @@ const statusCopy: Record<OrderStatusEmailStatus, { heading: string; detail: stri
 const escapeHtml = (value: string): string => value.replace(/[&<>"']/g, character => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
 })[character]!);
+const emailText = (value: string): string => value.replace(/[\r\n\t]+/g, ' ').trim();
 
 export function renderEmail(config: AppConfig, to: string, template: EmailTemplate, payload: EmailPayload): EmailMessage {
   if (template === 'ORDER_CREATED') {
     if (!('totalVnd' in payload) || !/^[0-9a-f-]{36}$/i.test(payload.orderId) || !Number.isSafeInteger(payload.totalVnd) || payload.totalVnd < 0) throw new Error('Invalid order email payload');
-    const text = `Your order ${payload.orderId} was placed.\nTotal: ${payload.totalVnd} VND.\nCash on delivery: payment is due when your order arrives.`;
-    return { to, subject: 'Your AnhEmFarm order was placed', text, html: `<p>${text.replaceAll('\n', '</p><p>')}</p>` };
+    if (payload.items !== undefined && (!Array.isArray(payload.items) || payload.items.some(item => !item || typeof item.name !== 'string' || typeof item.label !== 'string' ||
+      !Number.isInteger(item.quantity) || item.quantity < 1 || (item.optionGroupLabel !== null && typeof item.optionGroupLabel !== 'string') || (item.optionLabel !== null && typeof item.optionLabel !== 'string')))) throw new Error('Invalid order email items');
+    const lines = (payload.items ?? []).map(item => `- ${emailText(item.name)} (${emailText(item.label)})${item.optionLabel ? ` · ${emailText(item.optionGroupLabel ?? 'Option')}: ${emailText(item.optionLabel)}` : ''} × ${item.quantity}`);
+    const details = lines.length ? `\nItems:\n${lines.join('\n')}` : '';
+    const text = `Your order ${payload.orderId} was placed.${details}\nTotal: ${payload.totalVnd} VND.\nCash on delivery: payment is due when your order arrives.`;
+    const htmlItems = (payload.items ?? []).map(item => `<li>${escapeHtml(emailText(item.name))} (${escapeHtml(emailText(item.label))})${item.optionLabel ? ` · ${escapeHtml(emailText(item.optionGroupLabel ?? 'Option'))}: ${escapeHtml(emailText(item.optionLabel))}` : ''} × ${item.quantity}</li>`).join('');
+    const itemHtml = htmlItems ? `<p>Items:</p><ul>${htmlItems}</ul>` : '';
+    return { to, subject: 'Your AnhEmFarm order was placed', text, html: `<p>Your order ${escapeHtml(payload.orderId)} was placed.</p>${itemHtml}<p>Total: ${payload.totalVnd} VND.</p><p>Cash on delivery: payment is due when your order arrives.</p>` };
   }
   if (template === 'ORDER_STATUS_CHANGED') {
     if (!('status' in payload) || !/^[0-9a-f-]{36}$/i.test(payload.orderId) || !/^[0-9a-f-]{36}$/i.test(payload.eventId)

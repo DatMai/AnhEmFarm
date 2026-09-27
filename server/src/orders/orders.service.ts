@@ -18,14 +18,14 @@ const conflict = (code: string): never => { throw new ConflictException({ code }
 const invalid = (code: string): never => { throw new UnprocessableEntityException({ code }); };
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 const safe = (value: bigint): number => { const n = Number(value); if (!Number.isSafeInteger(n)) conflict('TOTAL_TOO_LARGE'); return n; };
-const includes = { items: { orderBy: { variantId: 'asc' as const } }, events: { orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }] } };
+const includes = { items: { orderBy: [{ variantId: 'asc' as const }, { selectionKey: 'asc' as const }] }, events: { orderBy: [{ createdAt: 'asc' as const }, { id: 'asc' as const }] } };
 type LoadedOrder = Prisma.OrderGetPayload<{ include: typeof includes }>;
 function view(o: LoadedOrder): OrderView {
   return { id: o.id, status: o.status, collectionState: o.collectionState, version: o.version,
     recipient: o.recipientJson, subtotalVnd: safe(o.subtotalVnd), shippingVnd: safe(o.shippingVnd), totalVnd: safe(o.totalVnd),
     createdAt: o.createdAt.toISOString(), deliveredAt: o.deliveredAt?.toISOString() ?? null, collectedAt: o.collectedAt?.toISOString() ?? null,
     tracking: o.tracking, attention: o.status === 'PENDING' && Date.now() - o.createdAt.getTime() > 24 * 3600000,
-    items: o.items.map(i => ({ variantId: i.variantId, name: i.name, sku: i.sku, label: i.label, priceVnd: safe(i.priceVnd), quantity: i.quantity })),
+    items: o.items.map(i => ({ variantId: i.variantId, optionGroupLabel: i.optionGroupLabel, optionLabel: i.optionLabel, name: i.name, sku: i.sku, label: i.label, priceVnd: safe(i.priceVnd), quantity: i.quantity })),
     events: o.events.map(e => ({ id: e.id, fromStatus: e.fromStatus, toStatus: e.toStatus, reason: e.reason, createdAt: e.createdAt.toISOString() })) };
 }
 
@@ -129,18 +129,23 @@ export class OrdersService {
         if ((t.to === 'SHIPPING') !== (t.delivery !== undefined)) invalid('INVALID_DELIVERY');
         if (t.to !== 'RETURNED' && (t.received !== undefined || t.restock !== undefined)) invalid('INVALID_RETURN');
         if (t.to === 'RETURNED') {
-          if (t.received !== true || !t.restock || t.restock.length !== order.items.length) invalid('INVALID_RETURN');
+          const itemTotals = new Map<string, number>();
+          for (const item of order.items) itemTotals.set(item.variantId, (itemTotals.get(item.variantId) ?? 0) + item.quantity);
+          if (t.received !== true || !t.restock || t.restock.length !== itemTotals.size) invalid('INVALID_RETURN');
           const restock = t.restock!;
-          if (new Set(restock.map(r => r.variantId)).size !== restock.length || restock.some(r => !order.items.some(i => i.variantId === r.variantId && r.quantity <= i.quantity))) invalid('INVALID_RESTOCK');
+          if (new Set(restock.map(r => r.variantId)).size !== restock.length || restock.some(r => !itemTotals.has(r.variantId) || r.quantity > itemTotals.get(r.variantId)!)) invalid('INVALID_RESTOCK');
         }
         if (t.to === 'CANCELLED' || t.to === 'RETURNED') {
           // No product data changes here; stock-only writers lock sorted variants after order.
-          for (const item of order.items) await tx.$queryRaw`SELECT id FROM variants WHERE id = ${item.variantId}::uuid FOR UPDATE`;
-          for (const item of order.items) {
-            const quantity = t.to === 'CANCELLED' ? item.quantity : t.restock!.find(r => r.variantId === item.variantId)!.quantity;
-            const key = `${id}:${t.to === 'CANCELLED' ? 'cancel' : 'return'}:${item.variantId}`;
-            if (quantity > 0) await applyMovement(tx, { variantId: item.variantId, delta: quantity, actorId: actor.id, orderId: id, reason: t.reason!, operationKey: key });
-            else await tx.inventoryMovement.create({ data: { variantId: item.variantId, delta: 0, actorId: actor.id, orderId: id, reason: t.reason!, operationKey: key, payloadDigest: digest, resultJson: { quantity: 0 } } });
+          const itemTotals = new Map<string, number>();
+          for (const item of order.items) itemTotals.set(item.variantId, (itemTotals.get(item.variantId) ?? 0) + item.quantity);
+          const variantIds = [...itemTotals.keys()].sort();
+          for (const variantId of variantIds) await tx.$queryRaw`SELECT id FROM variants WHERE id = ${variantId}::uuid FOR UPDATE`;
+          for (const variantId of variantIds) {
+            const quantity = t.to === 'CANCELLED' ? itemTotals.get(variantId)! : t.restock!.find(r => r.variantId === variantId)!.quantity;
+            const key = `${id}:${t.to === 'CANCELLED' ? 'cancel' : 'return'}:${variantId}`;
+            if (quantity > 0) await applyMovement(tx, { variantId, delta: quantity, actorId: actor.id, orderId: id, reason: t.reason!, operationKey: key });
+            else await tx.inventoryMovement.create({ data: { variantId, delta: 0, actorId: actor.id, orderId: id, reason: t.reason!, operationKey: key, payloadDigest: digest, resultJson: { quantity: 0 } } });
           }
         }
         changes = { status: t.to, ...(t.to === 'DELIVERED' ? { deliveredAt: new Date() } : {}),

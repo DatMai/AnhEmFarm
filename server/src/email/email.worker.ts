@@ -93,8 +93,9 @@ export class EmailWorker {
       payload = this.outbox.decrypt<EmailPayload>(job.payload);
       if (job.template === 'ORDER_CREATED') {
         if (!('totalVnd' in payload)) throw new Error('Invalid order payload');
-        const order = await this.db.order.findUnique({ where: { id: payload.orderId } });
+        const order = await this.db.order.findUnique({ where: { id: payload.orderId }, include: { items: { orderBy: [{ variantId: 'asc' }, { selectionKey: 'asc' }] } } });
         if (!order || Number(order.totalVnd) !== payload.totalVnd) throw new Error('Invalid order payload');
+        payload = { ...payload, items: order.items.map(item => ({ name: item.name, label: item.label, optionGroupLabel: item.optionGroupLabel, optionLabel: item.optionLabel, quantity: item.quantity })) };
       } else if (job.template === 'ORDER_STATUS_CHANGED') {
         if (!('status' in payload)) throw new Error('Invalid order status payload');
         const [order, event] = await Promise.all([

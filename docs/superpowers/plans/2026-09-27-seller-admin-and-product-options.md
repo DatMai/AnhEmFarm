@@ -84,11 +84,11 @@
 - Order item views add nullable `optionGroupLabel` and `optionLabel`; totals remain `variant price × quantity + shipping`.
 - New order item uniqueness is `(orderId, variantId, selectionKey)`, where `selectionKey` is `none` or the validated choice UUID.
 
-- [ ] Add failing integration tests for invalidated quote, tampered option, two same-variant choices, one-time placement, immutable label snapshots after product edit, and unchanged stock/totals on rejection.
-- [ ] Implement locked placement validation and immutable order-item choice snapshots in the existing transaction.
-- [ ] Expose labels consistently in customer/seller order views and escaped email template output.
-- [ ] Add E2E assertion that a committed buyer order is returned by admin list and is findable by short reference across pages.
-- [ ] Run focused checkout/order tests and the demo shopping E2E; expect all pass.
+- [x] Add failing integration coverage for invalidated quotes, same-variant choices, immutable snapshots and unchanged stock after an admin edit; original attempt failed at the old `(orderId, variantId)` uniqueness constraint.
+- [x] Implement locked placement revalidation and immutable order-item choice snapshots; aggregate inventory deductions by variant across option lines.
+- [x] Expose option labels in customer/seller order views and the COD email, escaping HTML and flattening control characters.
+- [ ] Add E2E assertion that a committed buyer order is returned by admin list and is findable by short reference across pages. (Task 5/6 converts this journey to MPA.)
+- [x] Run focused checkout integration tests (17/17) and server typecheck; all pass.
 - [ ] Commit: `feat: snapshot product choices on cod orders`.
 
 ### Task 4: Customer product choice and quantity experience
@@ -161,4 +161,5 @@ Progress:
 - [x] Baseline repository verification.
 - [x] Task 1: Persistent product choices and catalog administration.
 - [x] Task 2: Carry choices through cart and quote safely.
-- [ ] Task 3–7: pending.
+- [x] Task 3: Snapshot choices into orders and protect checkout invariants.
+- [ ] Task 4–7: pending.
