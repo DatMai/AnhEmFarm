@@ -162,6 +162,7 @@ model ProductChoice {
  id String @id @default(uuid()) @db.Uuid
  groupId String @db.Uuid
  group ProductChoiceGroup @relation(fields:[groupId],references:[id],onDelete:Restrict)
+ cartItems CartItem[]
  label String
  active Boolean @default(true)
  sortPosition Int
@@ -229,12 +230,15 @@ model CartItem {
  id String @id @default(uuid()) @db.Uuid
  cartId String @db.Uuid
  variantId String @db.Uuid
+ choiceId String? @db.Uuid
+ selectionKey String @default("none")
  cart Cart @relation(fields:[cartId],references:[id],onDelete:Restrict)
  variant Variant @relation(fields:[variantId],references:[id],onDelete:Restrict)
+ choice ProductChoice? @relation(fields:[choiceId],references:[id],onDelete:Restrict)
  quantity Int
  createdAt DateTime @default(now())
  updatedAt DateTime @updatedAt
- @@unique([cartId,variantId])
+ @@unique([cartId,variantId,selectionKey])
  @@map("cart_items")
 }
 model CartMerge {

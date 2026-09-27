@@ -65,12 +65,12 @@
 - Cart merge line accepts `{ variantId, quantity, optionId: string | null }`; canonical digest includes optionId.
 - Quote lines include `{ optionId, optionGroupLabel, optionLabel }` sourced from PostgreSQL.
 
-- [ ] Add failing PostgreSQL tests for add/update/remove with choices, distinct lines for same variant/different choices, cross-product IDs, removed choices, no-choice products and stale quote after option edit.
-- [ ] Add cart selection key uniqueness and preserve no-choice legacy rows with key `none`.
-- [ ] Upgrade strict guest cart storage from v1 to v2, retaining valid v1 items and merge idempotency.
-- [ ] Implement transactional validation and snapshot option labels into quote lines; preserve server-calculated totals.
-- [ ] Run focused cart/quote integration tests and guest-cart tests; expect all pass.
-- [ ] Commit: `feat: persist product choices in customer carts`.
+- [x] Add failing PostgreSQL coverage for required/invalid/inactive choices, distinct lines for the same variant, labels and server totals in quotes; the first run failed on existing cart behavior.
+- [x] Add selection key uniqueness and retain legacy no-choice rows using key `none`; unavailable legacy rows remain removable.
+- [x] Upgrade strict guest cart storage from v1 to v2, retaining valid v1 lines and any in-flight merge key.
+- [x] Implement transactional choice ownership/active validation and snapshot current labels into quote lines; totals remain server-calculated.
+- [x] Run focused cart/quote integration (7/7), guest-cart tests (5/5) and server typecheck; all pass.
+- [x] Commit: `feat: persist product choices in customer carts`.
 
 ### Task 3: Snapshot choices into orders and protect checkout invariants
 
@@ -160,4 +160,5 @@ Approval evidence: user request on 2026-09-27 explicitly approves the seller act
 Progress:
 - [x] Baseline repository verification.
 - [x] Task 1: Persistent product choices and catalog administration.
-- [ ] Task 2–7: pending.
+- [x] Task 2: Carry choices through cart and quote safely.
+- [ ] Task 3–7: pending.

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startHarness, type Harness } from './harness.js';
 import { seedScenario, type Scenario } from './fixtures.js';
 import { CartService } from '../src/cart/cart.service.js';
@@ -9,6 +9,19 @@ describe('cart and quote persistence', () => {
   let h: Harness; let s: Scenario;
   const actor = () => ({ id: s.customer.id, role: 'CUSTOMER' as const, authVersion: 1 });
   beforeAll(async () => { h = await startHarness(); s = await seedScenario(h.db); });
+  beforeEach(async () => {
+    const group = await h.db.productChoiceGroup.findUnique({ where: { productId: s.product.id } });
+    if (group) {
+      await h.db.productChoice.updateMany({ where: { groupId: group.id }, data: { active: false } });
+      await h.db.productChoiceGroup.update({ where: { id: group.id }, data: { active: false } });
+    }
+    const cart = await h.db.cart.findUnique({ where: { userId: s.customer.id } });
+    if (cart) {
+      await h.db.cartItem.deleteMany({ where: { cartId: cart.id } });
+      await h.db.cartItem.create({ data: { cartId: cart.id, variantId: s.variant.id, quantity: 2, selectionKey: 'none' } });
+      await h.db.cart.update({ where: { id: cart.id }, data: { version: 1 } });
+    }
+  });
   afterAll(async () => { await h?.close(); });
   it('validates quantities and optimistic version, then merges idempotently', async () => {
     const cart = h.resolve(CartService);
@@ -32,6 +45,34 @@ describe('cart and quote persistence', () => {
   it('rejects excessive line count atomically', async () => {
     const cart = h.resolve(CartService);
     await expect(cart.merge(actor(), { key: randomUUID(), items: Array.from({ length: 51 }, () => ({ variantId: randomUUID(), quantity: 1 })) })).rejects.toMatchObject({ status: 422 });
+  });
+  it('keeps choices as distinct cart lines and quotes their database-owned labels', async () => {
+    const group = await h.db.productChoiceGroup.create({ data: { productId: s.product.id, label: 'Sweetness', choices: { create: [
+      { label: 'Original', sortPosition: 0 }, { label: 'Less sweet', sortPosition: 1 },
+    ] } } });
+    await h.db.cartItem.deleteMany({ where: { cartId: s.cartId } });
+    await h.db.cart.update({ where: { id: s.cartId }, data: { version: 1 } });
+    const choices = await h.db.productChoice.findMany({ where: { groupId: group.id }, orderBy: { sortPosition: 'asc' } });
+    const cart = h.resolve(CartService);
+    const initial = await cart.get(actor());
+    await expect(cart.set(actor(), s.variant.id, 1, initial.version)).rejects.toMatchObject({ status: 422 });
+    const first = await cart.set(actor(), s.variant.id, 2, initial.version, choices[0].id);
+    const third = await cart.set(actor(), s.variant.id, 1, first.version, choices[1].id);
+    expect(third.items).toHaveLength(2);
+    expect(third.items.map(item => item.optionLabel).sort()).toEqual(['Less sweet', 'Original']);
+    const input = { address: { recipient: s.address.recipient, phone: s.address.phone, zoneId: s.zone.id, line1: s.address.line1 }, ageConfirmed: false };
+    const quote = await h.resolve(QuoteService).create(actor(), input);
+    expect(quote.items.map(item => [item.optionGroupLabel, item.optionLabel]).sort()).toEqual([['Sweetness', 'Less sweet'], ['Sweetness', 'Original']]);
+    expect(quote.totalVnd).toBe(330000);
+    await expect(cart.set(actor(), s.variant.id, 1, third.version, randomUUID())).rejects.toMatchObject({ status: 409 });
+    const client = h.client();
+    expect((await client.request('POST', '/api/v1/auth/login', { email: s.customer.email, password: s.customer.password })).status).toBe(200);
+    const apiUpdate = await client.request('PUT', `/api/v1/cart/items/${s.variant.id}`, { quantity: 3, optionId: choices[0].id, version: third.version });
+    expect(apiUpdate.status).toBe(200);
+    expect(apiUpdate.body.items.find((item: { optionId: string }) => item.optionId === choices[0].id).quantity).toBe(3);
+    await h.db.productChoice.update({ where: { id: choices[0].id }, data: { active: false } });
+    await expect(cart.set(actor(), s.variant.id, 3, third.version, choices[0].id)).rejects.toMatchObject({ status: 409 });
+    await expect(h.resolve(QuoteService).create(actor(), input)).rejects.toMatchObject({ status: 409 });
   });
   it('validates gate, zone and address, then snapshots a 15-minute quote', async () => {
     const quote = h.resolve(QuoteService);

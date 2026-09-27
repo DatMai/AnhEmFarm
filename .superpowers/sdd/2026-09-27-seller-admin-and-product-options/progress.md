@@ -19,4 +19,6 @@
 ## Progress
 
 - Task 1: complete. PostgreSQL catalog integration: 13/13 pass; server typecheck passes. Focused new test: 1 pass. The first focused rerun exposed stale `_test` login buckets (429); catalog suite now clears only its fixture IP and pair buckets before/after, matching existing identity/security test isolation. Production rate limits were not changed. Two independent commands initially raced while regenerating Prisma Client; rerunning generate/typecheck sequentially passed.
-- Task 1 commit: pending until final rerun after admin-detail response assertion.
+- Task 1 commit: `ac24fa4 feat: add product customization choices`.
+- Task 2: complete. Cart/quote integration: 7/7 pass; guest-cart tests: 5/5 pass; server typecheck passes. New test first failed when choices were absent in cart/quote. Versioned migration applied to local `_dev` and `_test` databases. Fixed unique cart-line selection keys, strict server validation, legacy no-option recovery, quote label snapshots and safe v1 guest-cart migration including in-flight merge idempotency. Existing test fixture depends on a baseline cart line, so test setup restores that baseline between cases.
+- Task 2 commit: `pending`.
