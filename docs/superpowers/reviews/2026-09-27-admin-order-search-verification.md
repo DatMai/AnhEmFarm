@@ -1,6 +1,6 @@
 # Admin order search verification — 2026-09-27
 
-Scope: the owner approved adding this function to open PR #4, `feat/order-status-emails`. The branch is based on merged `main` commit `8a143ad`. Search and filters extend the existing order queue; they do not change order state transitions or the database schema.
+Scope: the owner approved adding this function to PR #4, `feat/order-status-emails`, which merged into `main` at `6d131ee`. The branch was based on merged `main` commit `8a143ad`. Search and filters extend the existing order queue; they do not change order state transitions or the database schema.
 
 ## Behavior
 

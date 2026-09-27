@@ -2,7 +2,7 @@
 
 AnhEmFarm is a React storefront and Node.js/TypeScript commerce API for mulberry products, Robusta and Arabica coffee, and provisional tea and honey ranges. All app and repository content is English. Cash on delivery (COD) is the initial checkout method.
 
-Customers can register, verify email, sign in, browse published products, manage a cart and addresses, place COD orders, and follow their order history. Sellers can manage catalog, images, stock, customers, fulfillment, COD collection, shipping zones, store settings, approved pages, audits, and failed email jobs. PostgreSQL holds accounts, stock and orders; the browser is never the business record.
+Customers can register, verify email, sign in, browse published products, manage a cart and addresses, place COD orders, and follow their order history. Committed order status changes queue customer emails. Sellers can manage catalog, images, stock, customers, searchable orders and fulfillment, COD collection, shipping zones, store settings, approved pages, audits, and failed email jobs. PostgreSQL holds accounts, stock and orders; the browser is never the business record.
 
 The site is **not enabled for real sales by this repository alone**. Confirmed product data, approved policies, business details, real delivery zones, domain, SMTP, object storage, backup destination and deployment credentials are needed. The sales switch is guarded by server checks.
 
@@ -15,11 +15,23 @@ docker compose -f deploy/compose.dev.yml --env-file .env.dev up -d
 npm ci
 npm --prefix server ci
 npm --prefix server run db:migrate
+```
+
+Start the API, worker and Vite in separate terminals:
+
+```sh
 npm --prefix server run dev
+```
+
+```sh
+npm --prefix server run worker
+```
+
+```sh
 npm run dev
 ```
 
-The API runs on `127.0.0.1:3000` and Vite on the URL it prints. The local SMTP viewer is Mailpit at `127.0.0.1:8025`. Development records are separate from test fixtures.
+The API runs on `127.0.0.1:3000` and Vite on the URL it prints. The local SMTP viewer is Mailpit at `127.0.0.1:8025`; the worker delivers queued development mail there. Development records are separate from test fixtures.
 
 ## Verification
 
