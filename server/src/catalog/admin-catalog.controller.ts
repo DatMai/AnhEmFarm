@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Patch, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { AdminGuard } from '../identity/admin.guard.js';
 import type { ActorRequest } from '../identity/auth.guard.js';
 import { CatalogService } from './catalog.service.js';
 import { z } from 'zod';
 import { adminListQuery, categoryCreate, categoryPatch, idSchema, pagination, parse, productCreate,
-  productPatch, variantCreate, variantPatch } from './catalog.schemas.js';
+  productPatch, choiceGroupUpdate, variantCreate, variantPatch } from './catalog.schemas.js';
 
 @Controller('admin')
 @UseGuards(AdminGuard)
@@ -34,6 +34,10 @@ export class AdminCatalogController {
   @Patch('products/:id')
   updateProduct(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
     return this.catalog.updateProduct(request.actor!, parse(idSchema, id), parse(productPatch, body));
+  }
+  @Put('products/:id/choice-group')
+  updateChoiceGroup(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {
+    return this.catalog.updateChoiceGroup(request.actor!, parse(idSchema, id), parse(choiceGroupUpdate, body));
   }
   @Post('products/:id/images')
   addImage(@Req() request: ActorRequest, @Param('id') id: string, @Body() body: unknown) {

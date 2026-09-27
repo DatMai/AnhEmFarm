@@ -44,12 +44,12 @@
 - `CatalogService.updateChoiceGroup(actor: Actor, productId: string, input: ChoiceGroupInput)` locks the product, enforces active ADMIN, validates ownership/labels/count, updates product.version and writes an audit entry.
 - Public detail includes only an active group and active choices; admin detail includes inactive choices for recovery/reactivation.
 
-- [ ] Add PostgreSQL integration tests for choice CRUD, product ownership, validation, quote-relevant version increments and ADMIN-only access; run focused tests and confirm failure.
-- [ ] Add the schema and forward migration with safe defaults for products without choices.
-- [ ] Implement strict group/choice DTOs (one group, at most 12 active choices, exact normalized labels and product-owned IDs) and the `CatalogService.updateChoiceGroup` transaction.
-- [ ] Extend public product detail and admin product detail responses with the choice group; add SSR product data coverage.
-- [ ] Run `npm --prefix server run test:integration -- test/catalog.integration.test.ts` and `npm --prefix server run typecheck`; expect all pass.
-- [ ] Commit: `feat: add product customization choices`.
+- [x] Add PostgreSQL integration tests for choice CRUD, foreign-product IDs, validation (1–12 active choices), quote-relevant version increments and ADMIN-only access; confirm the original missing route failed before implementation.
+- [x] Add the schema and forward migration with safe defaults for products without choices.
+- [x] Implement strict group/choice DTOs (one group, at most 12 active choices, exact normalized labels and product-owned IDs) and the `CatalogService.updateChoiceGroup` transaction.
+- [x] Extend public product detail and admin product detail responses with the choice group; public data uses the same detail shape consumed by SSR.
+- [x] Run `npm --prefix server run test:integration -- test/catalog.integration.test.ts` and `npm --prefix server run typecheck`; both pass.
+- [x] Commit: `feat: add product customization choices`.
 
 ### Task 2: Carry choices through cart and quote safely
 
@@ -159,4 +159,5 @@ Approval evidence: user request on 2026-09-27 explicitly approves the seller act
 
 Progress:
 - [x] Baseline repository verification.
-- [ ] Task 1–7: pending.
+- [x] Task 1: Persistent product choices and catalog administration.
+- [ ] Task 2–7: pending.

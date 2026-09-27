@@ -3,7 +3,8 @@ import type { Prisma } from '../generated/prisma/client.js';
 
 const allowed: Record<string, ReadonlySet<string>> = {
   Category: new Set(['slug', 'name', 'version']),
-  Product: new Set(['slug', 'name', 'description', 'categoryId', 'status', 'confirmed', 'restricted18', 'version', 'mediaId']),
+  Product: new Set(['slug', 'name', 'description', 'categoryId', 'status', 'confirmed', 'restricted18', 'version', 'mediaId',
+    'choiceGroupLabel', 'choiceGroupActive', 'choices']),
   Variant: new Set(['sku', 'label', 'packDetails', 'priceVnd', 'saleEnabled', 'version', 'commercialVersion']),
 };
 

@@ -143,8 +143,33 @@ model Product {
  updatedAt DateTime @updatedAt
  variants Variant[]
  media ProductMedia[]
+ choiceGroup ProductChoiceGroup?
  @@index([status,categoryId])
  @@map("products")
+}
+model ProductChoiceGroup {
+ id String @id @default(uuid()) @db.Uuid
+ productId String @unique @db.Uuid
+ product Product @relation(fields:[productId],references:[id],onDelete:Cascade)
+ label String
+ active Boolean @default(true)
+ choices ProductChoice[]
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@map("product_choice_groups")
+}
+model ProductChoice {
+ id String @id @default(uuid()) @db.Uuid
+ groupId String @db.Uuid
+ group ProductChoiceGroup @relation(fields:[groupId],references:[id],onDelete:Restrict)
+ label String
+ active Boolean @default(true)
+ sortPosition Int
+ createdAt DateTime @default(now())
+ updatedAt DateTime @updatedAt
+ @@index([groupId,sortPosition,id])
+ @@index([groupId,active,sortPosition,id])
+ @@map("product_choices")
 }
 model Variant {
  id String @id @default(uuid()) @db.Uuid

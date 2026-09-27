@@ -7,13 +7,14 @@ import { AuditService } from '../admin/audit.service.js';
 import { IdentityService } from '../identity/identity.service.js';
 import type { Actor } from '../identity/session.service.js';
 import type { z } from 'zod';
-import type { productQuery, productCreate, productPatch, variantCreate, variantPatch, categoryCreate, categoryPatch, adminListQuery } from './catalog.schemas.js';
+import type { productQuery, productCreate, productPatch, choiceGroupUpdate, variantCreate, variantPatch, categoryCreate, categoryPatch, adminListQuery } from './catalog.schemas.js';
 
 export interface Page<T> { items: T[]; page: number; pageSize: number; total: number }
 export interface ProductSummary { id: string; slug: string; name: string; category: { id: string; slug: string; name: string };
   images: Array<{ id: string; objectKey: string; mime: string; width: number; height: number; illustrative: boolean }>;
   startingPriceVnd: number | null; purchasable: boolean; confirmed: boolean }
 export interface ProductDetail extends ProductSummary { description: string; restricted18: boolean;
+  choiceGroup: { id: string; label: string; active: boolean; choices: Array<{ id: string; label: string; active: boolean }> } | null;
   variants: Array<{ id: string; sku: string; label: string; packDetails: string; priceVnd: number | null; inStock: boolean; saleEnabled: boolean }> }
 
 export function canPurchase(product: { status: ProductStatus; confirmed: boolean; restricted18: boolean },
@@ -25,7 +26,8 @@ export function canPurchase(product: { status: ProductStatus; confirmed: boolean
 }
 
 const productInclude = { category: true, variants: { orderBy: { id: 'asc' as const } },
-  media: { orderBy: [{ sortPosition: 'asc' as const }, { id: 'asc' as const }], include: { media: true } } };
+  media: { orderBy: [{ sortPosition: 'asc' as const }, { id: 'asc' as const }], include: { media: true } },
+  choiceGroup: { include: { choices: { orderBy: [{ sortPosition: 'asc' as const }, { id: 'asc' as const }] } } } };
 type LoadedProduct = Prisma.ProductGetPayload<{ include: typeof productInclude }>;
 const safeNumber = (value: bigint | null): number | null => {
   if (value === null) return null;
@@ -77,6 +79,10 @@ export class CatalogService {
       startingPriceVnd: safeNumber(prices.length ? prices.reduce((a, b) => a < b ? a : b) : null),
       purchasable: sale.length > 0, description: product.description, confirmed: product.confirmed,
       restricted18: product.restricted18,
+      choiceGroup: product.choiceGroup?.active && product.choiceGroup.choices.some(choice => choice.active)
+        ? { id: product.choiceGroup.id, label: product.choiceGroup.label, active: true,
+          choices: product.choiceGroup.choices.filter(choice => choice.active).map(choice => ({ id: choice.id, label: choice.label, active: true })) }
+        : null,
       variants: product.variants.map(variant => ({ id: variant.id, sku: variant.sku, label: variant.label,
         packDetails: variant.packDetails, priceVnd: safeNumber(variant.priceVnd), inStock: variant.stock > 0,
         saleEnabled: variant.saleEnabled })),
@@ -152,6 +158,8 @@ export class CatalogService {
   private adminSerialize(product: LoadedProduct, settings: { salesEnabled: boolean; wineEnabled: boolean }) {
     return { ...this.serialize(product, settings), status: product.status, version: product.version,
       categoryId: product.categoryId, createdAt: product.createdAt.toISOString(), updatedAt: product.updatedAt.toISOString(),
+      choiceGroup: product.choiceGroup ? { id: product.choiceGroup.id, label: product.choiceGroup.label,
+        active: product.choiceGroup.active, choices: product.choiceGroup.choices.map(choice => ({ id: choice.id, label: choice.label, active: choice.active })) } : null,
       variants: product.variants.map(variant => ({ id: variant.id, sku: variant.sku, label: variant.label,
         packDetails: variant.packDetails, priceVnd: safeNumber(variant.priceVnd), stock: variant.stock,
         saleEnabled: variant.saleEnabled, version: variant.version, commercialVersion: variant.commercialVersion })) };
@@ -160,6 +168,47 @@ export class CatalogService {
     const product = await this.db.product.findUnique({ where: { id }, include: productInclude });
     if (!product) return missing();
     return this.adminSerialize(product, await this.settings());
+  }
+  async updateChoiceGroup(actor: Actor, productId: string, input: z.infer<typeof choiceGroupUpdate>) {
+    return withTransaction(this.db, async tx => {
+      await this.assertAdmin(tx, actor);
+      await this.lockProductVariants(tx, productId);
+      const product = await tx.product.findUnique({ where: { id: productId }, include: { choiceGroup: { include: { choices: true } } } });
+      if (!product) return missing();
+      if (product.version !== input.expectedVersion) return versionConflict();
+
+      const previous = product.choiceGroup;
+      const existingIds = new Set(previous?.choices.map(choice => choice.id) ?? []);
+      if (input.choices.some(choice => choice.id && !existingIds.has(choice.id)))
+        throw new UnprocessableEntityException({ code: 'INVALID_PRODUCT_CHOICE' });
+
+      let groupId = previous?.id ?? null;
+      if (input.label !== null) {
+        if (groupId) await tx.productChoiceGroup.update({ where: { id: groupId }, data: { label: input.label, active: true } });
+        else groupId = (await tx.productChoiceGroup.create({ data: { productId, label: input.label, active: true } })).id;
+        await tx.productChoice.updateMany({ where: { groupId }, data: { active: false } });
+        for (const [sortPosition, choice] of input.choices.entries()) {
+          if (choice.id) {
+            await tx.productChoice.update({ where: { id: choice.id }, data: { label: choice.label, active: choice.active, sortPosition } });
+          } else {
+            await tx.productChoice.create({ data: { groupId, label: choice.label, active: choice.active, sortPosition } });
+          }
+        }
+      } else if (groupId) {
+        await tx.productChoiceGroup.update({ where: { id: groupId }, data: { active: false } });
+        await tx.productChoice.updateMany({ where: { groupId }, data: { active: false } });
+      }
+
+      const updated = await tx.product.update({ where: { id: productId }, data: { version: { increment: 1 } } });
+      const currentGroup = groupId ? await tx.productChoiceGroup.findUniqueOrThrow({ where: { id: groupId },
+        include: { choices: { orderBy: [{ sortPosition: 'asc' }, { id: 'asc' }] } } }) : null;
+      const choiceGroup = currentGroup ? { id: currentGroup.id, label: currentGroup.label, active: currentGroup.active,
+        choices: currentGroup.choices.map(choice => ({ id: choice.id, label: choice.label, active: choice.active })) } : null;
+      await this.audit.record(tx, { actorId: actor.id, action: 'PRODUCT_CHOICES_UPDATED', targetType: 'Product', targetId: productId,
+        changes: { choiceGroupLabel: input.label, choiceGroupActive: input.label !== null,
+          choices: input.choices.map(({ label, active }) => ({ label, active })), version: updated.version } });
+      return { version: updated.version, choiceGroup };
+    });
   }
   async createCategory(actor: Actor, input: z.infer<typeof categoryCreate>) {
     try { return await withTransaction(this.db, async tx => {
