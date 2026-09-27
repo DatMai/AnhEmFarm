@@ -2,6 +2,10 @@
 
 Updated: 2026-09-27.
 
+## Current repository state — 2026-09-27
+
+`main` is at `8a143ad` (PR #3 merged). PR #4 remains open from `feat/order-status-emails`; it contains transactional customer order-status emails and the admin order search follow-up described below. The order-search code and tests are being verified on the existing PR worktree. Do not describe either feature as present on `main` until PR #4 is merged.
+
 ## Current state
 
 The local preview now runs the separate email worker alongside API/Vite. Registration queues verification mail; the worker delivers it to Mailpit at `http://127.0.0.1:8025`, not an external inbox. The registration page links to Mailpit in Vite development mode. This addresses the missing worker in the prior preview; two queued local messages were delivered after it started.
@@ -23,9 +27,19 @@ The first GitHub CI runs on PR #1 failed three media integration cases because t
 
 ## UI polish follow-up — 2026-09-27
 
-The owner approved removing decorative arrow icons and adding restrained motion for navigation, dialogs, toasts, and button feedback. The change is on `feat/ui-motion-polish`, based on merged `main` commit `4200038`. Functional icons remain, and `prefers-reduced-motion` is honored. `npm ci` and `npm run build` passed in the feature worktree; tests were not run for this UI-only pass. GitHub [PR #3](https://github.com/DatMai/AnhEmFarm/pull/3) is open into `main` for owner review and is not merged.
+The owner approved removing decorative arrow icons and adding restrained motion for navigation, dialogs, toasts, and button feedback. The change was on `feat/ui-motion-polish`, based on merged `main` commit `4200038`. Functional icons remain, and `prefers-reduced-motion` is honored. `npm ci` and `npm run build` passed in the feature worktree; tests were not run for this UI-only pass. GitHub [PR #3](https://github.com/DatMai/AnhEmFarm/pull/3) was merged into `main` at `8a143ad`.
+
+## Order status email follow-up — 2026-09-27
+
+The owner authorized immediate work on order status emails and best-practice choices without repeated approval requests, with a real-user evaluation. Work is isolated on `feat/order-status-emails` from merged `origin/main` `8a143ad`. The approved commerce design and implementation plan now record the bounded notification behavior and execution steps. The backend queues an owner-only status email in the order transaction and sends it through the existing encrypted outbox worker. Status changes cover confirmation, shipping, delivery, cancellation and return; shipping can include carrier tracking as escaped text. COD collection edits do not queue status mail. The email now has a readable short reference and responsive red action button. A prior page-entry fade briefly reduced text contrast during accessibility scans, so text-bearing content now moves without fading.
+
+Fresh local verification: `npm run verify` passed client/SSR/API builds, 17 frontend tests and 159 PostgreSQL backend tests; `npm run test:e2e` passed 23/23 browser cases after a 22/23 run exposed the transient contrast issue. The fixture customer/seller journey delivered three status emails into Mailpit and verified their subjects and order links; desktop and phone email previews were inspected. A read-only reviewer found no Critical or Important issue, and its one Minor test gap was addressed. GitHub [PR #4](https://github.com/DatMai/AnhEmFarm/pull/4) is open for owner merge. Its initial pull-request CI passed; the push CI exposed a pre-existing login/navigation race in one E2E test. The test now waits for the customer session; focused local, full 17/159, and full 23/23 verification passed after the correction. Both GitHub checks passed on fix commit `b052c83`. Full evidence and limits: `docs/superpowers/reviews/2026-09-27-order-status-email-verification.md`. External SMTP and production delivery remain unverified.
 
 Earlier verification history follows.
+
+## Admin order search follow-up — 2026-09-27
+
+The owner approved adding order search to the same PR: short order-reference prefix, customer name/email, carrier tracking, status, and inclusive Vietnam-date filters. The server validates the query and performs bounded, stable database pagination behind authorization; customer searches are scoped to the signed-in customer's orders. No schema migration was needed. Focused PostgreSQL integration coverage passed (53 tests), the real seller browser flow passed (2 cases), the full browser suite passed (23 cases), and final `npm run verify` passed (17 frontend and 160 server tests plus client/SSR/API builds). The change is committed and pushed to PR #4; see `docs/superpowers/reviews/2026-09-27-admin-order-search-verification.md` for evidence and limits.
 
 For the preview pass, `npm run verify` passed with 17 frontend and 152 backend tests; `npm run test:e2e` passed 21 browser cases. The development seed created ten browseable listings, and direct server-rendered navigation to a pending shipping page returned an explanatory HTTP 404 without a hydration exception. See the new review record for exact limits.
 

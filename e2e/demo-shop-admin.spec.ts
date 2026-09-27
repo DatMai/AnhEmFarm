@@ -57,6 +57,24 @@ test('one real COD purchase is fulfilled by the seller in the browser', async ({
       await expect(seller.getByRole('button', { name: 'Correct COD to due' })).toBeVisible()
       await page.reload()
       await expect(page.getByText('Delivered', { exact: true })).toBeVisible()
+
+      const delivered = once(backend, 'message')
+      backend.send({ action: 'email', email: fixture.customer.email })
+      expect((await delivered)[0]).toMatchObject({ done: 'email' })
+      const inboxResponse = await fetch('http://127.0.0.1:8025/api/v1/messages?limit=1000')
+      expect(inboxResponse.ok).toBe(true)
+      const inbox = await inboxResponse.json() as { messages: Array<{ ID: string; Subject: string; To: Array<{ Address: string }> }> }
+      const updates = inbox.messages.filter(message => message.To.some(recipient => recipient.Address === fixture.customer.email)
+        && message.Subject.startsWith('Your AnhEmFarm order is '))
+      expect(updates.map(message => message.Subject).sort()).toEqual([
+        'Your AnhEmFarm order is confirmed', 'Your AnhEmFarm order is delivered', 'Your AnhEmFarm order is shipping',
+      ])
+      for (const update of updates) {
+        const messageResponse = await fetch(`http://127.0.0.1:8025/api/v1/message/${update.ID}`)
+        expect(messageResponse.ok).toBe(true)
+        const message = await messageResponse.json() as { Text: string }
+        expect(message.Text).toContain(`/account/orders/${orderId}`)
+      }
     } finally {
       await sellerContext.close()
     }

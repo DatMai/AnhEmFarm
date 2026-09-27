@@ -106,9 +106,13 @@ CANCELLED restores stock exactly once in the same status-change transaction. RET
 
 COD has separate DUE/COLLECTED states. Only ADMIN may mark it COLLECTED after the order is DELIVERED and collection is confirmed. A repeated action creates no second collection record. Reverting a mistaken collection to DUE needs a reason and audit history. V1 does not perform automatic refunds or a post-delivery customer-return workflow; exceptions are handled manually and noted without inventing a monetary transaction.
 
+### Order status email follow-up — 2026-09-27
+
+Every committed transition to CONFIRMED, SHIPPING, DELIVERED, CANCELLED, or RETURNED queues one English email to the order owner in the same database transaction as the status event. Customer cancellation uses the same path. Replaying an operation key cannot queue another email. The message identifies the new state and links to that customer's order page; SHIPPING includes carrier tracking when the seller entered it. Tracking is treated as untrusted text in HTML. Collection corrections do not send a status email. The worker verifies the event and owner before delivery, then uses the existing encrypted outbox, retry and failure reporting. This is a notification of the recorded state, not proof of carrier delivery or COD payment. Development mail goes to Mailpit; external SMTP still requires production configuration and verification.
+
 ## 9. Administration and reporting
 
-Use a separate React admin layout. All `/api/v1/admin` endpoints enforce ADMIN on the server. Admin capabilities: category/product/variant/image management, publish/archive, reasoned stock adjustments, customer search and purchase history, customer suspension/reactivation, order filtering and fulfillment, and delivery-fee/content editing.
+Use a separate React admin layout. All `/api/v1/admin` endpoints enforce ADMIN on the server. Admin capabilities: category/product/variant/image management, publish/archive, reasoned stock adjustments, customer search and purchase history, customer suspension/reactivation, order search/filtering and fulfillment, and delivery-fee/content editing. The order queue searches by short order-reference prefix, customer name/email, or carrier tracking number; status and inclusive created-date filters can be combined. Search is bounded and paginated on the server, and dates use Asia/Ho_Chi_Minh calendar days.
 
 Audit product, stock, customer, order, COD, delivery-fee, and content changes with actor, time, target, and the necessary change details. Minimize sensitive fields. The API cannot edit or delete audit entries.
 
