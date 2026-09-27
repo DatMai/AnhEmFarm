@@ -112,7 +112,7 @@ Every committed transition to CONFIRMED, SHIPPING, DELIVERED, CANCELLED, or RETU
 
 ## 9. Administration and reporting
 
-Use a separate React admin layout. All `/api/v1/admin` endpoints enforce ADMIN on the server. Admin capabilities: category/product/variant/image management, publish/archive, reasoned stock adjustments, customer search and purchase history, customer suspension/reactivation, order filtering and fulfillment, and delivery-fee/content editing.
+Use a separate React admin layout. All `/api/v1/admin` endpoints enforce ADMIN on the server. Admin capabilities: category/product/variant/image management, publish/archive, reasoned stock adjustments, customer search and purchase history, customer suspension/reactivation, order search/filtering and fulfillment, and delivery-fee/content editing. The order queue searches by short order-reference prefix, customer name/email, or carrier tracking number; status and inclusive created-date filters can be combined. Search is bounded and paginated on the server, and dates use Asia/Ho_Chi_Minh calendar days.
 
 Audit product, stock, customer, order, COD, delivery-fee, and content changes with actor, time, target, and the necessary change details. Minimize sensitive fields. The API cannot edit or delete audit entries.
 

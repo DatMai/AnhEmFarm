@@ -216,6 +216,42 @@ describe('order ownership and fulfillment', () => {
     const collected = await c.request('POST', `/api/v1/admin/orders/${o.id}/collection`, { state: 'COLLECTED', version: 4, operationKey: randomUUID() });
     expect(collected.status).toBe(200); expect(collected.body).toMatchObject({ version: 5, collectionState: 'COLLECTED' });
   });
+  it('searches admin orders by reference, customer and tracking with status and Vietnam date filters', async () => {
+    const s = await seedScenario(h.db); const order = await place(s); const admin = h.client();
+    await admin.request('POST', '/api/v1/auth/login', { email: s.admin.email, password: s.admin.password });
+    await admin.request('POST', `/api/v1/admin/orders/${order.id}/transitions`, { to: 'CONFIRMED', version: 1, operationKey: randomUUID() });
+    const tracking = `TRACK-${s.variant.sku}`;
+    await admin.request('POST', `/api/v1/admin/orders/${order.id}/transitions`, {
+      to: 'SHIPPING', version: 2, operationKey: randomUUID(),
+      delivery: { mode: 'CARRIER', carrier: 'Test carrier', tracking },
+    });
+    const secondOrder = await place(s);
+    const vietnamDate = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    for (const [index, q] of [order.id.slice(0, 8), 'Test Customer', s.customer.email, tracking.slice(-8)].entries()) {
+      const result = await admin.request('GET', `/api/v1/admin/orders?q=${encodeURIComponent(q)}&status=SHIPPING`);
+      expect(result.status).toBe(200);
+      expect(result.body.items.map((item: { id: string }) => item.id), `search variant ${index + 1}`).toContain(order.id);
+    }
+    const firstPage = await admin.request('GET', `/api/v1/admin/orders?q=${encodeURIComponent(s.customer.email)}&page=1&pageSize=1`);
+    const secondPage = await admin.request('GET', `/api/v1/admin/orders?q=${encodeURIComponent(s.customer.email)}&page=2&pageSize=1`);
+    expect(firstPage.body.total).toBe(2);
+    expect(firstPage.body.items).toHaveLength(1);
+    expect(secondPage.body.total).toBe(2);
+    expect(secondPage.body.items).toHaveLength(1);
+    expect(secondPage.body.items[0].id).not.toBe(firstPage.body.items[0].id);
+    expect([firstPage.body.items[0].id, secondPage.body.items[0].id]).toEqual(expect.arrayContaining([order.id, secondOrder.id]));
+    const dateFiltered = await admin.request('GET', `/api/v1/admin/orders?from=${vietnamDate}&to=${vietnamDate}&status=SHIPPING`);
+    expect(dateFiltered.status).toBe(200);
+    expect(dateFiltered.body.items.map((item: { id: string }) => item.id)).toContain(order.id);
+    const wrongStatus = await admin.request('GET', `/api/v1/admin/orders?q=${encodeURIComponent(tracking)}&status=PENDING`);
+    expect(wrongStatus.body.items).toHaveLength(0);
+    expect((await admin.request('GET', '/api/v1/admin/orders?from=2026-02-30')).status).toBe(422);
+    expect((await admin.request('GET', '/api/v1/admin/orders?from=2026-09-28&to=2026-09-27')).status).toBe(422);
+    expect((await admin.request('GET', `/api/v1/admin/orders?q=${'x'.repeat(121)}`)).status).toBe(422);
+    expect((await admin.request('GET', '/api/v1/admin/orders?from=2025-01-01&to=2025-12-31')).status).toBe(200);
+    expect((await admin.request('GET', '/api/v1/admin/orders?from=2025-01-01&to=2026-01-01')).status).toBe(422);
+    expect((await admin.request('GET', '/api/v1/admin/orders?from=2025-01-01&to=2026-01-02')).status).toBe(422);
+  });
   it('records zero restock for damaged SKUs and replays canonically after restart', async () => {
     const s = await seedScenario(h.db); const o = await place(s); const service = h.resolve(OrdersService); const a = actor(s.admin.id, 'ADMIN');
     const second = await h.db.variant.create({ data: { productId: s.product.id, sku: `ZERO-${randomUUID()}`, label: 'Test damaged SKU', packDetails: 'Test', priceVnd: 100n, stock: 2 } });

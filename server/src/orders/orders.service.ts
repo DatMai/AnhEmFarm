@@ -53,9 +53,46 @@ export class OrdersService {
     const f = parseBody(orderFiltersSchema, filters);
     return withTransaction(this.db, async tx => {
       const role = await this.authorize(tx, actor);
-      const where = { ...(role === 'ADMIN' ? {} : { userId: actor.id }), status: f.status, collectionState: f.collectionState };
-      const items = await tx.order.findMany({ where, include: includes, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: (f.page - 1) * f.pageSize, take: f.pageSize });
-      return { items: items.map(view), page: f.page, pageSize: f.pageSize, total: await tx.order.count({ where }) };
+      const createdAt: Prisma.DateTimeFilter | undefined = f.from || f.to ? {
+        ...(f.from ? { gte: new Date(`${f.from}T00:00:00+07:00`) } : {}),
+        ...(f.to ? { lt: new Date(new Date(`${f.to}T00:00:00+07:00`).getTime() + 86400000) } : {}),
+      } : undefined;
+      const searchConditions: Prisma.Sql[] = [];
+      if (role !== 'ADMIN') searchConditions.push(Prisma.sql`orders."userId" = ${actor.id}`);
+      if (f.status) searchConditions.push(Prisma.sql`orders.status = ${f.status}`);
+      if (f.collectionState) searchConditions.push(Prisma.sql`orders."collectionState" = ${f.collectionState}`);
+      if (createdAt?.gte) searchConditions.push(Prisma.sql`orders."createdAt" >= ${createdAt.gte}`);
+      if (createdAt?.lt) searchConditions.push(Prisma.sql`orders."createdAt" < ${createdAt.lt}`);
+      if (f.q) searchConditions.push(Prisma.sql`(
+            (${/^[0-9a-f-]{1,36}$/i.test(f.q)} AND left(orders.id::text, char_length(${f.q})) = lower(${f.q}))
+            OR position(lower(${f.q}) in lower(users.name)) > 0
+            OR position(lower(${f.q}) in lower(users.email)) > 0
+            OR position(lower(${f.q}) in lower(coalesce(orders.tracking, ''))) > 0
+          )`);
+      const searchWhere = Prisma.join(searchConditions, ' AND ');
+      const matchingOrders = f.q ? await tx.$queryRaw<Array<{ id: string }>>`
+        SELECT orders.id
+        FROM orders
+        JOIN users ON users.id = orders."userId"
+        WHERE ${searchWhere}
+        ORDER BY orders."createdAt" DESC, orders.id DESC
+        LIMIT ${f.pageSize} OFFSET ${(f.page - 1) * f.pageSize}
+      ` : [];
+      const searchTotal = f.q ? await tx.$queryRaw<Array<{ total: bigint }>>`
+        SELECT count(*) AS total
+        FROM orders
+        JOIN users ON users.id = orders."userId"
+        WHERE ${searchWhere}
+      ` : null;
+      const where: Prisma.OrderWhereInput = {
+        ...(role === 'ADMIN' ? {} : { userId: actor.id }),
+        ...(f.status ? { status: f.status } : {}),
+        ...(f.collectionState ? { collectionState: f.collectionState } : {}),
+        ...(createdAt ? { createdAt } : {}),
+        ...(f.q ? { id: { in: matchingOrders.map(order => order.id) } } : {}),
+      };
+      const items = await tx.order.findMany({ where, include: includes, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], skip: f.q ? 0 : (f.page - 1) * f.pageSize, take: f.pageSize });
+      return { items: items.map(view), page: f.page, pageSize: f.pageSize, total: searchTotal ? Number(searchTotal[0].total) : await tx.order.count({ where }) };
     });
   }
   async get(actor: Actor, id: string): Promise<OrderView> {
