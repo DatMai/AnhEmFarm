@@ -2,6 +2,8 @@
 
 Status: owner-authorized design decision, 2026-09-27. The owner explicitly approved implementation without further questions; no separate document-review response is claimed.
 
+Implementation status: merged through PR #7 at `745ee90`. The post-merge check is recorded in `docs/superpowers/reviews/2026-09-27-post-merge-quality-verification.md`; the design requirements below remain in force. References to an unmerged preview describe the original acceptance gate.
+
 ## Experience
 
 An anonymous shopper can keep items in the local cart, proceed to checkout, enter an email and delivery address, review a short-lived server quote, and place a COD order. The page explains that no online payment is collected and that registering and verifying the same email later places earlier guest orders in the account order list. The receipt and order status remain accessible in the current browser through an opaque guest cookie. A signed-in checkout keeps its present flow.

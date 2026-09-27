@@ -2,6 +2,8 @@
 
 Status: approved under the owner's explicit blanket authorization of all implementation decisions in his 2026-09-27 request. The initial release is a reviewable implementation behind a pull request; it does not enable live sales or invent live catalog content.
 
+Implementation status: merged through PR #6 at `3e6fbcf`. A later quality check of the merged portal and product journey is recorded in `docs/superpowers/reviews/2026-09-27-post-merge-quality-verification.md`. The design requirements below remain in force.
+
 ## Goal
 
 Give sellers a separate, backend-owned administration workspace that makes orders and store operations easy to manage, exposes orders immediately after successful checkout, and lets customers choose a simple product-specific option and quantity before placing COD orders.

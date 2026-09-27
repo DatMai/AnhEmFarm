@@ -13,7 +13,7 @@ In development and test only, `localhost`, `127.0.0.1`, and `[::1]` are equivale
 - Regression coverage initially failed because the localhost alias received 403; after the middleware change it reaches authentication validation (401 for intentionally invalid credentials).
 - A foreign scheme remains rejected in development, and a loopback alias remains rejected in production.
 - Frontend error mapping has a focused regression test.
-- Browser registration, Mailpit verification, and sign-in succeeded for a synthetic local QA account.
+- The browser journey submitted registration, used local Mailpit verification, and signed in a synthetic QA login. A later read-only database check found that login had ADMIN role, so this earlier journey does not establish that it was a newly registered CUSTOMER account. The registration integration and E2E suites use separate customer fixtures.
 - Full `npm run verify` result: see final handoff entry.
 
 The QA account and all email data are local synthetic data; no credentials are stored in this repository.

@@ -2,6 +2,8 @@
 
 Base: merged `origin/main` at `3e6fbcf`. Execution: inline in the managed worktree on `feat/guest-checkout-account-linking`, as authorized by the owner; no subagent execution requested. Record RED and GREEN checks in the progress record.
 
+Progress: tasks 1–5 were implemented and merged through PR #7 at `745ee90`; the final evidence is in `docs/superpowers/reviews/2026-09-27-guest-checkout-verification.md`. The 2026-09-27 merged-state check is in `docs/superpowers/reviews/2026-09-27-post-merge-quality-verification.md`.
+
 1. **Persistence and ownership.** Add guest session, nullable quote/order account owner, guest email/session, guest idempotency keys, database constraints and indexes. Generate Prisma client and apply migration to an isolated test database. Test that an unverified account cannot claim orders and a verified matching account can.
 2. **Guest quote and COD placement.** Add strict request schemas and opaque-cookie session handling. Reuse the account quote/placement validation and transaction invariants for guest orders. Test quote totals, options, stale data, stock race, request replay and cross-session access before implementing each behavior.
 3. **Seller and email integration.** Include guest orders in seller lists/search/detail and notify the checkout address for creation and status changes. Cover with integration tests.
