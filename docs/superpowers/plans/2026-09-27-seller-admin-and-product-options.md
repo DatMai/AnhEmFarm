@@ -40,11 +40,13 @@
 
 **Interfaces:**
 - Produce a product choice-group read shape `{ id, label, choices: [{ id, label, active }] }`.
-- Admin can create, rename, activate/deactivate choices only through an ADMIN-authorized operation; each change increments product.version and writes audit.
+- Admin writes the complete group through `PUT /api/v1/admin/products/:id/choice-group` with `{ expectedVersion, label: string | null, choices: [{ id?: string, label, active }] }`; null label deactivates the group and all its choices.
+- `CatalogService.updateChoiceGroup(actor: Actor, productId: string, input: ChoiceGroupInput)` locks the product, enforces active ADMIN, validates ownership/labels/count, updates product.version and writes an audit entry.
+- Public detail includes only an active group and active choices; admin detail includes inactive choices for recovery/reactivation.
 
 - [ ] Add PostgreSQL integration tests for choice CRUD, product ownership, validation, quote-relevant version increments and ADMIN-only access; run focused tests and confirm failure.
 - [ ] Add the schema and forward migration with safe defaults for products without choices.
-- [ ] Implement strict group/choice DTOs (one group, at most 12 choices, exact normalized labels) and audited service methods.
+- [ ] Implement strict group/choice DTOs (one group, at most 12 active choices, exact normalized labels and product-owned IDs) and the `CatalogService.updateChoiceGroup` transaction.
 - [ ] Extend public product detail and admin product detail responses with the choice group; add SSR product data coverage.
 - [ ] Run `npm --prefix server run test:integration -- test/catalog.integration.test.ts` and `npm --prefix server run typecheck`; expect all pass.
 - [ ] Commit: `feat: add product customization choices`.
