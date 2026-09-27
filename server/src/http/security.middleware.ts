@@ -4,7 +4,7 @@ import { CsrfGuard, type SessionCsrfRequest, type SessionCsrfResolver } from '..
 import { RateLimitService } from '../identity/rate-limit.service.js';
 import { rateKey, requestIp } from './request-context.js';
 
-export type RatePolicies = Record<'loginPair' | 'loginIp' | 'registrationIp' | 'emailAccount' | 'emailIp', { limit: number; windowMs: number }>;
+export type RatePolicies = Record<'loginPair' | 'loginIp' | 'registrationIp' | 'emailAccount' | 'emailIp' | 'guestQuoteIp' | 'guestOrderIp', { limit: number; windowMs: number }>;
 
 export const DEFAULT_RATE_POLICIES: RatePolicies = {
   loginPair: { limit: 10, windowMs: 15 * 60_000 },
@@ -12,6 +12,8 @@ export const DEFAULT_RATE_POLICIES: RatePolicies = {
   registrationIp: { limit: 10, windowMs: 60 * 60_000 },
   emailAccount: { limit: 3, windowMs: 60 * 60_000 },
   emailIp: { limit: 20, windowMs: 60 * 60_000 },
+  guestQuoteIp: { limit: 60, windowMs: 60 * 60_000 },
+  guestOrderIp: { limit: 20, windowMs: 60 * 60_000 },
 };
 
 export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: RateLimitService, resolveSessionCsrf?: SessionCsrfResolver) {
@@ -49,6 +51,10 @@ export function securityMiddleware(config: AppConfig, csrf: CsrfGuard, limiter: 
       } else if (['/auth/forgot-password', '/auth/resend-verification'].includes(path)) {
         const email = typeof request.body?.email === 'string' ? request.body.email.trim().toLowerCase().slice(0, 254) : '';
         rules.push(['emailIp', ip, 'emailIp'], ['emailAccount', email, 'emailAccount']);
+      } else if (path === '/guest/quotes' || path === '/guest/cart-preview') {
+        rules.push(['guestQuoteIp', ip, 'guestQuoteIp']);
+      } else if (path === '/guest/orders') {
+        rules.push(['guestOrderIp', ip, 'guestOrderIp']);
       }
       for (const [scope, identifier, policyName] of rules) {
         const policy = policies[policyName];

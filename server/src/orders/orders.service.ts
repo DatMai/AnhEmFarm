@@ -68,13 +68,14 @@ export class OrdersService {
             (${/^[0-9a-f-]{1,36}$/i.test(f.q)} AND left(orders.id::text, char_length(${f.q})) = lower(${f.q}))
             OR position(lower(${f.q}) in lower(users.name)) > 0
             OR position(lower(${f.q}) in lower(users.email)) > 0
+            OR position(lower(${f.q}) in lower(coalesce(orders."guestEmail", ''))) > 0
             OR position(lower(${f.q}) in lower(coalesce(orders.tracking, ''))) > 0
           )`);
       const searchWhere = f.q ? Prisma.join(searchConditions, ' AND ') : Prisma.empty;
       const matchingOrders = f.q ? await tx.$queryRaw<Array<{ id: string }>>`
         SELECT orders.id
         FROM orders
-        JOIN users ON users.id = orders."userId"
+        LEFT JOIN users ON users.id = orders."userId"
         WHERE ${searchWhere}
         ORDER BY orders."createdAt" ${f.attentionOnly ? Prisma.raw('ASC') : Prisma.raw('DESC')}, orders.id ${f.attentionOnly ? Prisma.raw('ASC') : Prisma.raw('DESC')}
         LIMIT ${f.pageSize} OFFSET ${(f.page - 1) * f.pageSize}
@@ -82,7 +83,7 @@ export class OrdersService {
       const searchTotal = f.q ? await tx.$queryRaw<Array<{ total: bigint }>>`
         SELECT count(*) AS total
         FROM orders
-        JOIN users ON users.id = orders."userId"
+        LEFT JOIN users ON users.id = orders."userId"
         WHERE ${searchWhere}
       ` : null;
       const where: Prisma.OrderWhereInput = {
@@ -100,6 +101,12 @@ export class OrdersService {
   async get(actor: Actor, id: string): Promise<OrderView> {
     id = parseBody(uuidSchema, id).toLowerCase();
     return withTransaction(this.db, async tx => view(await this.owned(tx, actor, await this.authorize(tx, actor), id)));
+  }
+  async getGuest(guestSessionId: string, id: string): Promise<OrderView> {
+    id = parseBody(uuidSchema, id).toLowerCase();
+    const order = await this.db.order.findFirst({ where: { id, guestSessionId }, include: includes });
+    if (!order) throw new NotFoundException({ code: 'NOT_FOUND' });
+    return view(order);
   }
   async transition(actor: Actor, id: string, input: Transition): Promise<OrderView> {
     return this.mutate(actor, id, 'transition', parseBody(transitionSchema, input));
@@ -163,11 +170,11 @@ export class OrdersService {
       const event = await tx.orderEvent.create({ data: { orderId: id, actorId: actor.id, fromStatus: order.status,
         toStatus: kind === 'transition' ? (input as Transition).to : order.status, reason: input.reason, detailsJson: json({ kind, ...payload }), operationKey, payloadDigest: digest, resultJson: {} } });
       if (kind === 'transition') {
-        const owner = await tx.user.findUniqueOrThrow({ where: { id: order.userId }, select: { email: true } });
+        const owner = order.userId ? await tx.user.findUniqueOrThrow({ where: { id: order.userId }, select: { email: true } }) : null;
         const transition = input as Transition;
         if (transition.to === 'PENDING') throw new Error('Unexpected pending order transition');
         await this.outbox.enqueue(tx, {
-          dedupeKey: `order-status:${event.id}`, recipient: owner.email, template: 'ORDER_STATUS_CHANGED',
+          dedupeKey: `order-status:${event.id}`, recipient: owner?.email ?? order.guestEmail!, template: 'ORDER_STATUS_CHANGED',
           payload: { orderId: id, eventId: event.id, status: transition.to,
             tracking: transition.to === 'SHIPPING' && transition.delivery?.mode === 'CARRIER' ? transition.delivery.tracking : null },
         });

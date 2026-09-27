@@ -1,7 +1,7 @@
 import type { AppConfig } from '../config.js';
 
 export type OrderStatusEmailStatus = 'CONFIRMED' | 'SHIPPING' | 'DELIVERED' | 'CANCELLED' | 'RETURNED';
-export type OrderStatusEmailPayload = { orderId: string; eventId: string; status: OrderStatusEmailStatus; tracking: string | null };
+export type OrderStatusEmailPayload = { orderId: string; eventId: string; status: OrderStatusEmailStatus; tracking: string | null; guest?: boolean };
 export type EmailTemplate = 'VERIFY' | 'RESET' | 'ORDER_CREATED' | 'ORDER_STATUS_CHANGED';
 export type OrderEmailItem = { name: string; label: string; optionGroupLabel: string | null; optionLabel: string | null; quantity: number };
 export type EmailPayload = { token: string } | { orderId: string; totalVnd: number; items?: OrderEmailItem[] } | OrderStatusEmailPayload;
@@ -43,9 +43,10 @@ export function renderEmail(config: AppConfig, to: string, template: EmailTempla
     const label = statusLabels[payload.status];
     const copy = statusCopy[payload.status];
     const reference = payload.orderId.slice(0, 8).toUpperCase();
-    const url = new URL(`/account/orders/${payload.orderId}`, config.origin).toString();
+    const url = new URL(`/${payload.guest ? 'guest' : 'account'}/orders/${payload.orderId}`, config.origin).toString();
+    const hint = payload.guest ? 'Open this link in the browser where you placed your guest order. Registering and verifying the checkout email adds the order to your account.' : 'Sign in to view your order history.';
     const tracking = payload.status === 'SHIPPING' ? payload.tracking : null;
-    const text = `AnhEmFarm\n\n${copy.heading}\n${copy.detail}\nOrder reference: ${reference}\n${tracking ? `Tracking: ${tracking}\n` : ''}\nView order: ${url}\n\nSign in to view your order history.`;
+    const text = `AnhEmFarm\n\n${copy.heading}\n${copy.detail}\nOrder reference: ${reference}\n${tracking ? `Tracking: ${tracking}\n` : ''}\nView order: ${url}\n\n${hint}`;
     const html = `<div style="max-width:560px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#2b2522;line-height:1.5">`
       + `<p style="margin:0 0 24px;color:#a9273b;font-size:18px;font-weight:700">AnhEmFarm</p>`
       + `<h1 style="margin:0 0 12px;font-size:24px;line-height:1.25">${copy.heading}</h1>`
@@ -53,7 +54,7 @@ export function renderEmail(config: AppConfig, to: string, template: EmailTempla
       + `<p style="margin:0 0 12px">Order reference: <strong>${reference}</strong></p>`
       + (tracking ? `<p style="margin:0 0 20px">Tracking: ${escapeHtml(tracking)}</p>` : '')
       + `<p style="margin:24px 0"><a href="${escapeHtml(url)}" style="display:inline-block;background:#a9273b;color:#ffffff;padding:11px 18px;border-radius:6px;text-decoration:none;font-weight:700">View order</a></p>`
-      + `<p style="margin:24px 0 0;color:#675a52;font-size:13px">Sign in to view your order history.</p></div>`;
+      + `<p style="margin:24px 0 0;color:#675a52;font-size:13px">${escapeHtml(hint)}</p></div>`;
     return { to, subject: `Your AnhEmFarm order is ${label}`, text, html };
   }
   if (!('token' in payload)) throw new Error('Invalid token email payload');

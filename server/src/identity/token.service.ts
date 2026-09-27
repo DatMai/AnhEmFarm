@@ -41,14 +41,17 @@ export class TokenService {
     await withTransaction(this.db, async tx => {
       const candidate = await tx.accountToken.findUnique({ where: { digest: sha256(raw) }, select: { userId: true } });
       if (!candidate) throw invalid();
-      const users = await tx.$queryRaw<Array<{ id: string; status: string }>>`
-        SELECT id, status FROM users WHERE id = ${candidate.userId}::uuid FOR UPDATE
+      const users = await tx.$queryRaw<Array<{ id: string; status: string; email: string }>>`
+        SELECT id, status, email FROM users WHERE id = ${candidate.userId}::uuid FOR UPDATE
       `;
       if (users[0]?.status !== 'ACTIVE') throw invalid();
       const token = await tx.accountToken.findUnique({ where: { digest: sha256(raw) } });
       if (!token || token.purpose !== purpose || token.usedAt || token.expiresAt <= new Date()) throw invalid();
       await tx.accountToken.update({ where: { id: token.id }, data: { usedAt: new Date() } });
-      if (purpose === 'VERIFY') await tx.user.update({ where: { id: token.userId }, data: { verifiedAt: new Date() } });
+      if (purpose === 'VERIFY') {
+        await tx.user.update({ where: { id: token.userId }, data: { verifiedAt: new Date() } });
+        await tx.order.updateMany({ where: { userId: null, guestEmail: users[0].email }, data: { userId: token.userId } });
+      }
       else {
         await tx.user.update({ where: { id: token.userId }, data: { passwordHash: passwordHash!, authVersion: { increment: 1 } } });
         await tx.session.deleteMany({ where: { userId: token.userId } });

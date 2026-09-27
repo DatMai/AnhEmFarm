@@ -18,7 +18,13 @@ const config = {
   mode: 'development' as const,
   origin: 'http://127.0.0.1:4278',
   databaseUrl,
-  smtp: { host: '127.0.0.1', port: 1025, from: 'test@example.test' }
+  smtp: { host: '127.0.0.1', port: 1025, from: 'test@example.test' },
+  ratePolicies: {
+    ...readConfig().ratePolicies,
+    guestQuoteIp: { limit: 10000, windowMs: 60 * 60_000 },
+    guestOrderIp: { limit: 10000, windowMs: 60 * 60_000 },
+    registrationIp: { limit: 10000, windowMs: 60 * 60_000 },
+  }
 }
 const port = Number(process.env.TEST_API_PORT ?? 4279)
 let app = await createApp(config)

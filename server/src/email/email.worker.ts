@@ -99,12 +99,13 @@ export class EmailWorker {
       } else if (job.template === 'ORDER_STATUS_CHANGED') {
         if (!('status' in payload)) throw new Error('Invalid order status payload');
         const [order, event] = await Promise.all([
-          this.db.order.findUnique({ where: { id: payload.orderId }, select: { user: { select: { email: true } } } }),
+          this.db.order.findUnique({ where: { id: payload.orderId }, select: { guestEmail: true, user: { select: { email: true } } } }),
           this.db.orderEvent.findUnique({ where: { id: payload.eventId } }),
         ]);
-        if (!order || order.user.email !== job.recipient || !event || event.orderId !== payload.orderId || event.toStatus !== payload.status) {
+        if (!order || (order.user?.email ?? order.guestEmail) !== job.recipient || !event || event.orderId !== payload.orderId || event.toStatus !== payload.status) {
           throw new Error('Invalid order status payload');
         }
+        payload = { ...payload, guest: !order.user };
       } else {
         if (!('token' in payload) || typeof payload.token !== 'string') throw new Error('Invalid email payload');
         const token = await this.db.accountToken.findUnique({ where: { digest: sha256(payload.token) } });

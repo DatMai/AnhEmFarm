@@ -143,7 +143,8 @@ export async function api<T>(path: string, options: Options = {}): Promise<T> {
       mutation &&
       code === 'CSRF_REJECTED' &&
       !renew &&
-      !path.startsWith('/orders')
+      !path.startsWith('/orders') &&
+      !path.startsWith('/guest/orders')
     )
       return run(true)
     throw new ApiError(
