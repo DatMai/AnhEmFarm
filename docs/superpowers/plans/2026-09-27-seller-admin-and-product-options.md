@@ -148,8 +148,8 @@
 - [x] Finish independent code review and resolve all Important findings. Review caught product-create CSRF, MPA catalog DTO validation, success feedback and upload ID validation ordering; all were fixed and regression-tested.
 - [x] Run full verification after implementation: root `npm run verify` passed (19 frontend tests; 166 server tests; client, SSR and API builds); `npm run test:e2e` passed 20/20. Root/server audits report zero vulnerabilities. The full E2E buyer/seller journey covers signed-in COD checkout, queue/order lookup, transitions, COD correction, changed option versus immutable order snapshot, wrong-role denial, CSRF, separate-tab navigation, mobile layout and accessibility.
 - [x] Update the admin runbook, private local screen map, handoff, review record, and plan progress with verified outcomes and limits. Add the PR URL after creation.
-- [ ] Run `git diff --check`, review `git status --short`, push branch and open one explicit PR to `main` for owner review.
-- [ ] Preserve PR for the owner to merge.
+- [x] Run `git diff --check`, review `git status --short`, push the explicit `feat/seller-admin-product-options` branch, and open [PR #6](https://github.com/DatMai/AnhEmFarm/pull/6) to `main` for owner review.
+- [x] Preserve PR #6 for the owner to merge; it remains open and unmerged.
 
 ## Execution choice and progress
 

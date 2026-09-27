@@ -36,4 +36,4 @@ This is not a production-readiness declaration. Live catalog details, prices, st
 
 ## PR
 
-Pending: push the reviewed branch and open one explicit PR to `main` for the owner to review and merge.
+Opened [PR #6](https://github.com/DatMai/AnhEmFarm/pull/6), **feat: Add backend seller portal, action queue, and product choices**, from `feat/seller-admin-product-options` into `main`. The PR is open and attached to the task for the owner to review and merge; it has not been merged.

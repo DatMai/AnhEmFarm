@@ -12,7 +12,9 @@ Fresh verification after the review fixes: `npm run verify` passed (client/SSR/A
 
 The private ignored map at `.local-ui-map/` has been refreshed in the primary checkout with backend portal screenshots, customer product option/quantity/cart/quote/confirmation captures, updated route/control notes, and revised browser journeys. It remains local-only and is excluded by `.git/info/exclude`; none of the screenshots or map files are part of this PR. Screenshots show synthetic fixture data and are not a record of production orders.
 
-Remaining before handoff: finish independent review of fixes, create an English commit for the portal changes, push `feat/seller-admin-product-options`, open and attach one explicit PR to `main`, then record its URL here. Do not merge. Production catalog, stock, pricing, payment integrations, policies, external SMTP, real media storage and operational launch gates remain unverified.
+The independent review is complete with no remaining material findings. The implementation was committed in English as `d3e4aad`; the branch is pushed and attached to [PR #6](https://github.com/DatMai/AnhEmFarm/pull/6), titled **feat: Add backend seller portal, action queue, and product choices**, targeting `main`. The PR is open for the owner to review and merge; it has not been merged.
+
+Production catalog, stock, pricing, payment integrations, policies, external SMTP, real media storage and operational launch gates remain unverified.
 
 ## Current repository state — 2026-09-27
 
